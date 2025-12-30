@@ -2,60 +2,80 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 
 (async () => {
-  // Configuração da busca (New 3DS LL no Mercari via Doorzo)
   const searchTerm = "Newニンテンドー3DS LL";
-  const searchUrl = `https://www.doorzo.com/pt/mall/mercari/search?keywords=${encodeURIComponent(searchTerm)}`;
+  const startUrl = "https://www.doorzo.com/pt";
 
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({ 
+    headless: false, 
+    args: ['--no-sandbox', '--window-size=1366,768'] 
+  });
+  
   const page = await browser.newPage();
-  
-  // Definindo um User-Agent comum para evitar bloqueios simples
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-  console.log(`Abrindo: ${searchUrl}`);
-  await page.goto(searchUrl, { waitUntil: 'networkidle2' });
+  try {
+    console.log(`Conectando ao Doorzo...`);
+    await page.goto(startUrl, { waitUntil: 'networkidle2' });
 
-  // Espera os itens carregarem (seletor baseado na estrutura do Doorzo)
-  await page.waitForSelector('.goods-item');
+    console.log(`Buscando por: ${searchTerm}`);
+    const searchInputSelector = '.app-search-input input';
+    await page.waitForSelector(searchInputSelector);
+    await page.type(searchInputSelector, searchTerm);
+    await page.keyboard.press('Enter');
 
-  // Scroll automático para carregar mais itens (lazy loading)
-  await page.evaluate(async () => {
-    await new Promise((resolve) => {
-      let totalHeight = 0;
-      let distance = 100;
-      let timer = setInterval(() => {
-        let scrollHeight = document.body.scrollHeight;
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-        if (totalHeight >= scrollHeight) {
-          clearInterval(timer);
-          resolve();
+    console.log("Aguardando carregamento da lista de resultados...");
+    await page.waitForSelector('.goods-item', { timeout: 30000 });
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Etapa 1: Coletar os links básicos da primeira página de resultados
+    const initialLinks = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll('.goods-item'));
+      return items.map(item => ({
+        url: "https://www.doorzo.com" + item.getAttribute('href')
+      }));
+    });
+
+    console.log(`Encontrados ${initialLinks.length} anúncios. Iniciando captura de descrições...`);
+
+    const finalCatalog = [];
+
+    // Etapa 2: Navegar em cada link para extrair a descrição (Deep Scraping)
+    for (let i = 0; i < initialLinks.length; i++) {
+        const itemUrl = initialLinks[i].url;
+        console.log(`[${i+1}/${initialLinks.length}] Analisando: ${itemUrl}`);
+        
+        try {
+            await page.goto(itemUrl, { waitUntil: 'domcontentloaded', timeout: 40000 });
+            // Espera o seletor da descrição ou do nome carregar
+            await page.waitForSelector('.html', { timeout: 10000 });
+            await new Promise(r => setTimeout(r, 1500)); // Pausa para renderização do Vue
+
+            const data = await page.evaluate(() => {
+                const nameEl = document.querySelector('.name') || document.querySelector('.goods-name');
+                const priceEl = document.querySelector('.price-com');
+                const descEl = document.querySelector('.html'); // Onde fica a descrição no Doorzo
+
+                return {
+                    nome: nameEl ? nameEl.innerText.trim() : "N/A",
+                    preco_iene: priceEl ? parseInt(priceEl.innerText.replace(/[^0-9]/g, '')) : 0,
+                    descricao: descEl ? descEl.innerText.trim() : "Descrição não encontrada"
+                };
+            });
+
+            finalCatalog.push({ ...data, url: itemUrl });
+        } catch (e) {
+            console.log(`⚠️ Pulei um item por erro de carregamento: ${itemUrl}`);
         }
-      }, 100);
-    });
-  });
+    }
 
-  // Extração dos dados
-  const products = await page.evaluate(() => {
-    const items = Array.from(document.querySelectorAll('.goods-item'));
-    return items.map(item => {
-      const name = item.querySelector('.name')?.innerText.trim();
-      const priceText = item.querySelector('.price-com')?.innerText.replace(/[^0-9]/g, '');
-      const link = item.getAttribute('href');
-      const img = item.querySelector('img')?.getAttribute('src');
-      
-      return {
-        nome: name,
-        preco_iene: parseInt(priceText),
-        url: link ? `https://www.doorzo.com${link}` : null,
-        imagem: img
-      };
-    });
-  });
+    // Salvar o arquivo detalhado
+    fs.writeFileSync('catalogo_3ds_detalhado.json', JSON.stringify(finalCatalog, null, 2));
+    console.log(`\n✅ SUCESSO! ${finalCatalog.length} itens catalogados com descrição.`);
+    console.log(`📂 Arquivo criado: catalogo_3ds_detalhado.json`);
 
-  // Salva em JSON
-  fs.writeFileSync('catalogo_3ds.json', JSON.stringify(products, null, 2));
-  
-  console.log(`Finalizado! ${products.length} itens catalogados em catalogo_3ds.json`);
-  await browser.close();
+  } catch (err) {
+    console.error("\n❌ Erro de execução:", err.message);
+  } finally {
+    await browser.close();
+  }
 })();
