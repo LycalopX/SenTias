@@ -1,0 +1,16 @@
+{
+  "name": "doorzo-scrapper",
+  "version": "1.0.0",
+  "description": "no",
+  "license": "ISC",
+  "author": "LycalopX",
+  "type": "commonjs",
+  "main": "doorzo.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LycalopX/doorzo-scrapper.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
