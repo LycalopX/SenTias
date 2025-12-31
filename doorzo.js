@@ -1,14 +1,41 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core'); // Recomendo usar core se você já tem o navegador
 const fs = require('fs');
+const path = require('path');
 
 (async () => {
   const searchTerm = "Newニンテンドー3DS LL";
   const startUrl = "https://www.doorzo.com/pt";
   const FILENAME = 'new_3ds_xl_catalogo.json';
   const NEW_ITEMS_FILENAME = 'novo_catalogo.json';
-  const MAX_PAGES = 50; 
+  const MAX_PAGES = 50;
   const PRECO_MINIMO = 10000;
   const CONCURRENCY_LIMIT = 5;
+
+  const getExecutablePath = () => {
+    if (process.platform === 'win32') {
+      // Caminho padrão do Edge no Windows
+      return 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+    } else if (process.platform === 'darwin') {
+      // Caminho padrão do Chrome no macOS
+      return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    }
+    return null;
+  };
+
+  const execPath = getExecutablePath();
+  console.log(`[INFO] Sistema: ${process.platform}`);
+  console.log(`[INFO] Usando navegador em: ${execPath}`);
+
+  const browser = await puppeteer.launch({
+    headless: false,
+    executablePath: execPath, // Definimos o caminho exato aqui
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--window-size=1366,768'
+    ],
+    ignoreHTTPSErrors: true
+  });
 
   // 1. Carregamento do Banco de Dados
   let catalog = [];
@@ -18,8 +45,8 @@ const fs = require('fs');
       // Lógica solicitada: todos começam como 'on: false' para limpeza de stock
       catalog.forEach(item => item.on = false);
       console.log(`[DB] ${catalog.length} itens carregados.`);
-    } catch (e) { 
-      console.log("Iniciando novo catálogo."); 
+    } catch (e) {
+      console.log("Iniciando novo catálogo.");
     }
   }
 
@@ -27,11 +54,6 @@ const fs = require('fs');
     const idMatch = url.match(/detail\/([^/?#]+)/);
     return idMatch ? idMatch[1] : url;
   };
-
-  const browser = await puppeteer.launch({ 
-    headless: false, 
-    args: ['--no-sandbox', '--window-size=1366,768'] 
-  });
 
   let rawItems = [];
 
@@ -50,7 +72,7 @@ const fs = require('fs');
     // 2. Carregamento de Lotes (Paginação)
     for (let p = 0; p < MAX_PAGES; p++) {
       process.stdout.write(`Carregando lotes: ${p + 1}/${MAX_PAGES}\r`);
-      
+
       await mainPage.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await new Promise(r => setTimeout(r, 2000));
 
@@ -69,8 +91,8 @@ const fs = require('fs');
       // Filtro de ruído por preço médio para parar cedo se necessário
       const avgPrice = await mainPage.evaluate(() => {
         const prices = Array.from(document.querySelectorAll('.goods-item'))
-                            .slice(-20)
-                            .map(item => parseInt(item.querySelector('.price-com')?.innerText.replace(/[^0-9]/g, '')) || 0);
+          .slice(-20)
+          .map(item => parseInt(item.querySelector('.price-com')?.innerText.replace(/[^0-9]/g, '')) || 0);
         return prices.reduce((a, b) => a + b, 0) / (prices.length || 1);
       });
 
@@ -91,7 +113,7 @@ const fs = require('fs');
     });
 
     console.log(`\nAnúncios encontrados: ${rawItems.length}`);
-    
+
     // OTIMIZAÇÃO: Fechamos a aba principal ANTES de iniciar o scraping pesado
     console.log("Limpando memória: Fechando aba de pesquisa...");
     await mainPage.close();
@@ -109,7 +131,7 @@ const fs = require('fs');
     const id = getUniqueId(item.url);
     const isNewModel = item.nome.toLowerCase().includes('new') && item.nome.toLowerCase().includes('ll') && item.nome.toLowerCase().includes('3ds');
     const isNotAccessory = !blacklist.some(word => item.nome.includes(word));
-    
+
     if (item.sold || !isNewModel || item.preco_iene < PRECO_MINIMO || !isNotAccessory) return;
 
     const existingItem = catalog.find(c => getUniqueId(c.url) === id);
@@ -126,7 +148,7 @@ const fs = require('fs');
     console.log(`Minerando descrições de ${toScrape.length} novos consoles...`);
     const workers = [];
     const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-    
+
     for (let i = 0; i < CONCURRENCY_LIMIT; i++) {
       const p = await browser.newPage();
       await p.setUserAgent(userAgent);
@@ -144,7 +166,7 @@ const fs = require('fs');
           return { ...itemInfo, descricao: desc, on: true };
         } catch (e) { return null; }
       }));
-      
+
       const valid = results.filter(r => r !== null);
       catalog.push(...valid);
       newlyAdded.push(...valid);
