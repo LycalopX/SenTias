@@ -14,6 +14,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "puppeteer": "^24.34.0"
+    "puppeteer": "^24.34.0",
+    "puppeteer-core": "^24.34.0"
   }
 }
