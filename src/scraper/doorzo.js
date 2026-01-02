@@ -4,11 +4,11 @@ puppeteer.use(StealthPlugin());
 
 const fs = require('fs');
 const path = require('path');
-const { searchTerm, FILENAME, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges } = require('../config');
+const { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges } = require('../config');
 const { getUniqueId, cleanDescription } = require('../utils');
 const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../state');
 
-const FILENAME_PATH = path.join(__dirname, '../../data', FILENAME);
+const FILENAME_ALL_PATH = path.join(__dirname, '../../data', FILENAME_ALL);
 
 function addLog(msg) {
     const time = new Date().toLocaleTimeString();
@@ -38,14 +38,16 @@ async function runScraper() {
 
       // 1. Snapshot Imutável
       let catalog = [];
-      if (fs.existsSync(FILENAME_PATH)) {
+      if (fs.existsSync(FILENAME_ALL_PATH)) {
         try {
-            catalog = JSON.parse(fs.readFileSync(FILENAME_PATH, 'utf8'));
+            catalog = JSON.parse(fs.readFileSync(FILENAME_ALL_PATH, 'utf8'));
         } catch (e) {
             addLog("Erro ao ler ou parsear o catalogo JSON. Começando com um catalogo vazio.");
             catalog = [];
         }
       }
+      catalog.forEach(item => item.on = false);
+
       originalCatalogSnapshot.length = 0;
       originalCatalogSnapshot.push(...catalog); // Snapshot para merge em caso de parada manual
       stats.totalItems = catalog.length;
@@ -135,11 +137,10 @@ async function runScraper() {
         }
 
         const existingItem = catalog.find(c => getUniqueId(c.url) === id);
-        if (!existingItem) {
-            toScrape.push(item);
+        if (existingItem) {
+            existingItem.on = true; 
         } else {
-            // Se o item já existe, atualizamos o `on` para true.
-            existingItem.on = true;
+            toScrape.push(item);
         }
       });
 
@@ -277,34 +278,31 @@ async function runScraper() {
         clearInterval(watchdogIntervalId); // Desarma o watchdog
       }
 
-      // Lógica de Salvamento Dual
-      let finalCatalog;
-      if (stopRequested.status) {
-        addLog("Merge de segurança: Combinando itens novos com catálogo antigo...");
-        finalCatalog = [...originalCatalogSnapshot, ...newlyScrapedThisCycle];
-        // Reset stop request so the loop can be restarted from the dashboard
-        stopRequested.status = false; 
-        stats.status = "Parado";
-      } else {
-        addLog("Ciclo normal: Atualizando o catálogo principal e limpando itens offline.");
-        // Marca todos os itens antigos como `off` antes de fazer o merge
-        catalog.forEach(item => item.on = false);
-        const combined = [...catalog, ...newlyScrapedThisCycle];
-        const itemMap = new Map();
-        combined.forEach(item => {
-            const id = getUniqueId(item.url);
-            const existing = itemMap.get(id);
-            if (!existing || (!existing.on && item.on)) {
-                 itemMap.set(id, item);
-            }
-        });
-        finalCatalog = Array.from(itemMap.values()).filter(item => item.on === true);
+      // --- NOVA LÓGICA DE SALVAMENTO ---
+      const FILENAME_NEW_PATH = path.join(__dirname, '../../data', FILENAME_NEW);
+      try {
+        fs.writeFileSync(FILENAME_NEW_PATH, JSON.stringify(newlyScrapedThisCycle, null, 2));
+        addLog(`Salvo ${newlyScrapedThisCycle.length} novos itens em ${FILENAME_NEW}.`);
+      } catch (e) {
+          addLog(`Falha Crítica ao escrever no arquivo de novos itens: ${e.message}`);
       }
 
+      // Combina o catálogo que foi modificado ('on' = true para itens encontrados) com os novos
+      const combinedCatalog = [...catalog, ...newlyScrapedThisCycle];
+      
+      // Filtra para manter apenas os que foram encontrados nesta rodada
+      const finalCatalog = combinedCatalog.filter(item => item.on === true);
+
       try {
-        fs.writeFileSync(FILENAME_PATH, JSON.stringify(finalCatalog, null, 2));
+        fs.writeFileSync(FILENAME_ALL_PATH, JSON.stringify(finalCatalog, null, 2));
+        addLog(`Catálogo completo atualizado com ${finalCatalog.length} itens em ${FILENAME_ALL}.`);
       } catch (e) {
-          addLog(`Falha Crítica ao escrever no disco: ${e.message}`);
+          addLog(`Falha Crítica ao escrever no catálogo completo: ${e.message}`);
+      }
+      
+      if(stopRequested.status) {
+          stopRequested.status = false; 
+          stats.status = "Parado";
       }
       
       stats.lastUpdate = new Date().toLocaleTimeString();

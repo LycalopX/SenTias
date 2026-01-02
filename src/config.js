@@ -1,6 +1,7 @@
 module.exports = {
     searchTerm: "Newニンテンドー3DS LL",
-    FILENAME: `new_3ds_xl_catalogo_completo.json`,
+    FILENAME_ALL: `catalogo_completo.json`,
+    FILENAME_NEW: `catalogo_novos_do_ciclo.json`,
     PORT: 3000, 
     CONCURRENCY_LIMIT: 5, 
     RECYCLE_THRESHOLD: 20, 
