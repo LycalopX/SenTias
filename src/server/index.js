@@ -64,6 +64,29 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+
+  if (req.url.startsWith('/assets/')) {
+    const assetPath = path.join(__dirname, '..', '..', req.url);
+    const stream = fs.createReadStream(assetPath);
+    stream.on('error', () => {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Asset not found.');
+    });
+    // Guess mime type
+    const mimeTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+    };
+    const ext = path.extname(assetPath).toLowerCase();
+    const mimeType = mimeTypes[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': mimeType });
+    stream.pipe(res);
+    return;
+  }
+
   // Frontend
   if (req.url === '/') {
     const dashboardPath = path.join(__dirname, 'dashboard.html');
