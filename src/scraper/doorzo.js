@@ -103,7 +103,7 @@ async function runScraper() {
 
           process.stdout.write('\n');
 
-          process.stdout.write('\n');
+          const items = await mainPage.evaluate(() => {
             return Array.from(document.querySelectorAll('.goods-item')).map(item => ({
               nome: item.querySelector('.goods-name')?.innerText || "",
               preco_iene: parseInt(item.querySelector('.price-com')?.innerText.replace(/[^0-9]/g, '')) || 0,
