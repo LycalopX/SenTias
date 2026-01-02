@@ -32,7 +32,7 @@
                 </div>
             </header>
 
-            <div class="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
                 <div class="card">
                     <p class="text-slate-400 text-sm">No Banco de Dados</p>
                     <p id="total-items" class="text-4xl font-bold mt-2">-</p>
@@ -48,6 +48,10 @@
                 <div class="card">
                     <p class="text-slate-400 text-sm">Novos Minerados</p>
                     <p id="new-items" class="text-4xl font-bold mt-2 text-green-400">-</p>
+                </div>
+                <div class="card">
+                    <p class="text-slate-400 text-sm">Itens Falhos</p>
+                    <p id="failed-items" class="text-4xl font-bold mt-2 text-red-500">-</p>
                 </div>
                 <div class="card col-span-2">
                     <p class="text-slate-400 text-sm">Último Console Encontrado</p>
@@ -146,6 +150,7 @@
                     document.getElementById('total-items-found').innerText = data.totalItemsFound || 0;
                     document.getElementById('lots-found').innerText = data.lotsFound || 0;
                     document.getElementById('new-items').innerText = '+' + (data.newItemsLastCycle || 0);
+                    document.getElementById('failed-items').innerText = data.failedItemsCount || 0;
                     document.getElementById('last-scraped').innerText = data.lastScrapedName || '-';
                     document.getElementById('current-range').innerText = data.currentRange || "N/A";
                     

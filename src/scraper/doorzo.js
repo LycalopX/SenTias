@@ -31,6 +31,7 @@ async function runScraper() {
       stats.progressTotal = 0;
       stats.lotsFound = 0;
       stats.totalItemsFound = 0;
+      stats.failedItemsCount = 0;
 
       // 1. Snapshot Imutável
       let catalog = [];
@@ -118,10 +119,19 @@ async function runScraper() {
       const uniqueItems = Array.from(new Map(allFoundItems.map(item => [getUniqueId(item.url), item])).values());
       const toScrape = [];
       const blacklist = ["フィルム", "カバー", "ケース", "充電器", "ACアダプター", "タッチペン", "ケーブル", "ポーチ", "ソフト"];
+      const keywords = ['new', '3ds', 'll'];
 
       uniqueItems.forEach(item => {
         const id = getUniqueId(item.url);
         if (blacklist.some(word => item.nome.includes(word)) || item.sold) return;
+
+        const lowerCaseName = item.nome.toLowerCase();
+        const hasAllKeywords = keywords.every(kw => lowerCaseName.includes(kw));
+
+        if (!hasAllKeywords) {
+            return;
+        }
+
         const existingItem = catalog.find(c => getUniqueId(c.url) === id);
         if (!existingItem) {
             toScrape.push(item);
@@ -225,6 +235,9 @@ async function runScraper() {
                 stats.progressCurrent++;
               }
             }
+            if (!success) {
+                stats.failedItemsCount++;
+            }
           }
           if (tab) await tab.close().catch(() => {});
         };
@@ -269,7 +282,7 @@ async function runScraper() {
         stats.status = "Em Espera";
         stats.progressTotal = 0;
         stats.progressCurrent = 0;
-        addLog(`Ciclo finalizado. Novos: ${stats.newItemsLastCycle}. Lotes encontrados: ${stats.lotsFound}. Dormindo ${WAIT_BETWEEN_CYCLES / 60000} min.`);
+        addLog(`Ciclo finalizado. Novos: ${stats.newItemsLastCycle}. Lotes encontrados: ${stats.lotsFound}. Itens falhos: ${stats.failedItemsCount}. Dormindo ${WAIT_BETWEEN_CYCLES / 60000} min.`);
         await new Promise(r => setTimeout(r, WAIT_BETWEEN_CYCLES));
       }
     }
