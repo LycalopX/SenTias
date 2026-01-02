@@ -116,6 +116,7 @@ async function runScraper() {
           });
           allFoundItems.push(...items);
         } catch (e) { 
+            process.stdout.write('\n');
             addLog(`Erro na faixa ${stats.currentRange}: ${e.message}`); 
         }
       }
