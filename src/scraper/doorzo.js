@@ -1,42 +1,100 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const { searchTerm, FILENAME, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges } = require('../config');
-const { stats, stopRequested, browser, originalCatalogSnapshot } = require('../state');
-const { getUniqueId, addLog } = require('../utils');
+const { getUniqueId } = require('../utils');
 const path = require('path');
 
 const FILENAME_PATH = path.join(__dirname, '../../data', FILENAME);
+const STATS_PATH = path.join(__dirname, '../../data', 'stats.json');
+const STOP_PATH = path.join(__dirname, '../../data', 'stop');
+
+let stats = {
+  status: "Iniciando...",
+  totalItems: 0,
+  newItemsLastCycle: 0,
+  lastUpdate: "-",
+  logs: [],
+  currentRange: "",
+  progressCurrent: 0,
+  progressTotal: 0,
+};
+
+let stopRequested = {
+    status: false
+};
+
+let originalCatalogSnapshot = [];
+
+function writeStats() {
+  fs.writeFileSync(STATS_PATH, JSON.stringify(stats, null, 2));
+}
+
+function addLog(msg) {
+    const time = new Date().toLocaleTimeString();
+    const entry = `[${time}] ${msg}`;
+    console.log(entry);
+    stats.logs.unshift(entry);
+    if (stats.logs.length > 50) stats.logs.pop();
+}
 
 async function runScraper() {
-  stats.browser = await puppeteer.launch({
+  const browser = await puppeteer.launch({
     headless: false,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720', '--disable-dev-shm-usage']
   });
 
   try {
     while (true) {
+      if (fs.existsSync(STOP_PATH)) {
+        stopRequested.status = true;
+        fs.unlinkSync(STOP_PATH);
+      }
+
       stats.status = "Pesquisando";
       stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
       stats.progressTotal = 0;
-      stopRequested.status = false;
+      if (stopRequested.status) {
+          stats.status = "Parando...";
+      }
+      writeStats();
+
+      if(stopRequested.status){
+          let catalog = [];
+          if (fs.existsSync(FILENAME_PATH)) {
+            catalog = JSON.parse(fs.readFileSync(FILENAME_PATH, 'utf8'));
+          }
+           // SALVAMENTO LÓGICO
+          let finalCatalog;
+          addLog("Merge de segurança: Combinando itens novos com catálogo antigo...");
+          writeStats();
+          // Mantém TUDO o que já existia + o que foi minerado agora
+          finalCatalog = [...originalCatalogSnapshot, ...newlyScrapedThisCycle];
+          
+          fs.writeFileSync(FILENAME_PATH, JSON.stringify(finalCatalog, null, 2));
+          addLog("Dados salvos com sucesso. Finalizando processo.");
+          writeStats();
+          process.exit();
+      }
 
       let catalog = [];
       if (fs.existsSync(FILENAME_PATH)) {
         catalog = JSON.parse(fs.readFileSync(FILENAME_PATH, 'utf8'));
       }
-      stats.originalCatalogSnapshot = [...catalog]; // Snapshot para merge em caso de parada manual
+      originalCatalogSnapshot = [...catalog]; // Snapshot para merge em caso de parada manual
       stats.totalItems = catalog.length;
+      writeStats();
 
       let allFoundItems = [];
-      const mainPage = await stats.browser.newPage();
+      const mainPage = await browser.newPage();
       await mainPage.setRequestInterception(true);
       mainPage.on('request', r => ['image', 'font', 'media'].includes(r.resourceType()) ? r.abort() : r.continue());
 
       for (const range of priceRanges) {
         if (stopRequested.status) break;
         stats.currentRange = `¥${range.min} - ¥${range.max}`;
-        addLog(stats, `Iniciando busca: ${stats.currentRange}`);
+        addLog(`Iniciando busca: ${stats.currentRange}`);
+        writeStats();
         
         try {
           await mainPage.goto(`https://www.doorzo.com/pt/search?keywords=${encodeURIComponent(searchTerm)}&price_min=${range.min}&price_max=${range.max}`, { waitUntil: 'networkidle2', timeout: 45000 });
@@ -67,7 +125,7 @@ async function runScraper() {
             }));
           });
           allFoundItems.push(...items);
-        } catch (e) { addLog(stats, `Erro na faixa ${stats.currentRange}`); }
+        } catch (e) { addLog(`Erro na faixa ${stats.currentRange}`); writeStats(); }
       }
       await mainPage.close();
 
@@ -87,11 +145,12 @@ async function runScraper() {
       if (toScrape.length > 0 && !stopRequested.status) {
         stats.status = "Minerando Descrições";
         stats.progressTotal = toScrape.length;
-        addLog(stats, `Minerando ${toScrape.length} novos consoles...`);
+        addLog(`Minerando ${toScrape.length} novos consoles...`);
+        writeStats();
         
         let currentIndex = 0;
         const createWorker = async () => {
-          let tab = await stats.browser.newPage();
+          let tab = await browser.newPage();
           let uses = 0;
           await tab.setRequestInterception(true);
           tab.on('request', r => (['image', 'font', 'media'].includes(r.resourceType()) || r.url().includes('google')) ? r.abort() : r.continue());
@@ -102,7 +161,7 @@ async function runScraper() {
 
             if (uses >= RECYCLE_THRESHOLD) {
               await tab.close().catch(() => {});
-              tab = await stats.browser.newPage();
+              tab = await browser.newPage();
               uses = 0;
             }
 
@@ -129,6 +188,7 @@ async function runScraper() {
                   stats.newItemsLastCycle++;
                   stats.progressCurrent++;
                   success = true;
+                  writeStats();
                 }
               } catch (e) { retries++; }
             }
@@ -142,9 +202,10 @@ async function runScraper() {
       // SALVAMENTO LÓGICO
       let finalCatalog;
       if (stopRequested.status) {
-        addLog(stats, "Merge de segurança: Combinando itens novos com catálogo antigo...");
+        addLog("Merge de segurança: Combinando itens novos com catálogo antigo...");
+        writeStats();
         // Mantém TUDO o que já existia + o que foi minerado agora
-        finalCatalog = [...stats.originalCatalogSnapshot, ...newlyScrapedThisCycle];
+        finalCatalog = [...originalCatalogSnapshot, ...newlyScrapedThisCycle];
       } else {
         // Ciclo normal: Atualiza o catálogo principal e remove o que não foi visto (ou vendido)
         finalCatalog = [...catalog, ...newlyScrapedThisCycle].filter(item => item.on === true);
@@ -153,7 +214,8 @@ async function runScraper() {
       fs.writeFileSync(FILENAME_PATH, JSON.stringify(finalCatalog, null, 2));
       
       if (stopRequested.status) {
-        addLog(stats, "Dados salvos com sucesso. Finalizando processo.");
+        addLog("Dados salvos com sucesso. Finalizando processo.");
+        writeStats();
         process.exit();
       }
 
@@ -161,11 +223,13 @@ async function runScraper() {
       stats.totalItems = finalCatalog.length;
       stats.status = "Em Espera";
       stats.progressTotal = 0;
-      addLog(stats, `Ciclo finalizado. Novos: ${stats.newItemsLastCycle}. Dormindo 10 min.`);
+      addLog(`Ciclo finalizado. Novos: ${stats.newItemsLastCycle}. Dormindo 10 min.`);
+      writeStats();
       await new Promise(r => setTimeout(r, WAIT_BETWEEN_CYCLES));
     }
   } catch (err) {
-    addLog(stats, `Erro crítico: ${err.message}`);
+    addLog(`Erro crítico: ${err.message}`);
+    writeStats();
     setTimeout(runScraper, 30000);
   }
 }
