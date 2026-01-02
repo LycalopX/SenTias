@@ -29,6 +29,7 @@ async function runScraper() {
       stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
       stats.progressTotal = 0;
+      stats.lotsFound = 0; // Reset lotsFound at the beginning of each cycle
 
       // 1. Snapshot Imutável
       let catalog = [];
@@ -75,6 +76,7 @@ async function runScraper() {
               const busy = await mainPage.evaluate(sel => document.querySelector(sel)?.disabled || document.querySelector(sel)?.classList.contains('is-loading'), moreBtnSelector);
               if (!busy) {
                 await mainPage.evaluate(sel => document.querySelector(sel)?.click(), moreBtnSelector);
+                stats.lotsFound++; // Increment lotsFound
                 await new Promise(r => setTimeout(r, 1500));
               } else { await new Promise(r => setTimeout(r, 2000)); p--; }
             } else break;
@@ -248,7 +250,7 @@ async function runScraper() {
         stats.status = "Em Espera";
         stats.progressTotal = 0;
         stats.progressCurrent = 0;
-        addLog(`Ciclo finalizado. Novos: ${stats.newItemsLastCycle}. Dormindo ${WAIT_BETWEEN_CYCLES / 60000} min.`);
+        addLog(`Ciclo finalizado. Novos: ${stats.newItemsLastCycle}. Lotes encontrados: ${stats.lotsFound}. Dormindo ${WAIT_BETWEEN_CYCLES / 60000} min.`);
         await new Promise(r => setTimeout(r, WAIT_BETWEEN_CYCLES));
       }
     }
