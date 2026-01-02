@@ -40,7 +40,8 @@ async function runScraper() {
             catalog = [];
         }
       }
-      originalCatalogSnapshot = [...catalog]; // Snapshot para merge em caso de parada manual
+      originalCatalogSnapshot.length = 0;
+      originalCatalogSnapshot.push(...catalog); // Snapshot para merge em caso de parada manual
       stats.totalItems = catalog.length;
 
       if (stopRequested.status) {
