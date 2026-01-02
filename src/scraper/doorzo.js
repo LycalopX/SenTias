@@ -64,6 +64,7 @@ async function runScraper() {
         
         try {
           await mainPage.goto(`https://www.doorzo.com/pt/search?keywords=${encodeURIComponent(searchTerm)}&price_min=${range.min}&price_max=${range.max}`, { waitUntil: 'networkidle2', timeout: 45000 });
+          stats.lotsFound++; // Count initial page load as a lot
           const moreBtnSelector = '.more a, .more button';
           for (let p = 0; p < 35; p++) {
             if (stopRequested.status) break;
