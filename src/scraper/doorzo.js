@@ -234,7 +234,7 @@ async function runScraper() {
     }
   } catch (err) {
     stats.status = "Erro Crítico";
-    stats.log.unshift(`[${new Date().toLocaleTimeString()}] Erro crítico no loop principal: ${err.message}`);
+    stats.logs.unshift(`[${new Date().toLocaleTimeString()}] Erro crítico no loop principal: ${err.message}`);
     console.error("Erro critico:", err);
     await new Promise(r => setTimeout(r, 30000)); // wait 30s before restarting
     runScraper(); // Tenta reiniciar o scraper

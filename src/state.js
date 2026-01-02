@@ -11,7 +11,7 @@ let stats = {
     status: 'stopped', // 'running', 'waiting', 'stopped', 'error'
     lastRun: null,
     errors: 0,
-    log: []
+    logs: []
 };
 
 module.exports = {
