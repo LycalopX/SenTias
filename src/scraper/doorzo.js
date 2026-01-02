@@ -61,6 +61,10 @@ async function runScraper() {
       await mainPage.setRequestInterception(true);
       mainPage.on('request', r => ['image', 'font', 'media'].includes(r.resourceType()) ? r.abort() : r.continue());
 
+      addLog("Navegando para a página principal para aquecimento...");
+      await mainPage.goto('https://www.doorzo.com/pt', { waitUntil: 'networkidle2' });
+      await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000)); // Human-like pause
+
       for (const range of priceRanges) {
         if (stopRequested.status) break;
         stats.currentRange = `¥${range.min} - ¥${range.max}`;
@@ -175,6 +179,7 @@ async function runScraper() {
                 tab = await browser.instance.newPage();
                 await tab.setRequestInterception(true);
                 tab.on('request', r => (['image', 'font', 'media'].includes(r.resourceType()) || r.url().includes('google')) ? r.abort() : r.continue());
+                await tab.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
             }
 
             const item = toScrape[currentIndex++];
@@ -193,16 +198,41 @@ async function runScraper() {
               try {
                 uses++;
                 const response = await tab.goto(item.url, { waitUntil: 'networkidle2', timeout: 30000 });
+
+                if (response.status() === 403) {
+                    addLog(`[Item Falho] Acesso negado (403) para ${item.url}.`);
+                    break; 
+                }
+                const pageContent = await tab.content();
+                if (pageContent.includes('Verifique se você é humano') || pageContent.includes('captcha') || pageContent.includes('Access Denied')) {
+                    addLog(`[Item Falho] Captcha/Verificação humana detectada para ${item.url}.`);
+                    break; 
+                }
+
                 if (response.status() === 503) {
                     const waitTime = (retries * 5000) + (Math.random() * 5000);
-                    addLog(`Recebido status 503 para ${item.url}. Tentando novamente em ${Math.round(waitTime / 1000)}s...`);
+                    addLog(`[Tentativa ${retries + 1}] Status 503 para ${item.url}. Tentando novamente em ${Math.round(waitTime / 1000)}s...`);
                     await new Promise(r => setTimeout(r, waitTime));
                     retries++;
                     continue;
                 }
 
-                let desc = await tab.evaluate(() => {
-                  const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+                const descriptionSelector = '.html';
+                const jsonLdSelector = 'script[type="application/ld+json"]';
+                
+                await tab.waitForFunction(
+                  (descSel, jsonSel) => {
+                    const htmlDiv = document.querySelector(descSel);
+                    const jsonLdScript = document.querySelector(jsonSel);
+                    return (htmlDiv && htmlDiv.innerText && htmlDiv.innerText.length > 50) || jsonLdScript;
+                  },
+                  { timeout: 10000 }
+                  , descriptionSelector, jsonLdSelector
+                ).catch(() => { /* continue if not found, will be handled by desc === null */ });
+                
+
+                let desc = await tab.evaluate((descSel, jsonSel) => {
+                  const scripts = Array.from(document.querySelectorAll(jsonSel));
                   for (const s of scripts) {
                     try {
                       const json = JSON.parse(s.innerText);
@@ -211,12 +241,13 @@ async function runScraper() {
                       if (prod && prod.description) return prod.description;
                     } catch (e) {}
                   }
-                  return document.querySelector('.html')?.innerText || null;
-                });
+                  return document.querySelector(descSel)?.innerText || null;
+                }, descriptionSelector, jsonLdSelector);
                 
                 if (desc === null) {
-                    await new Promise(r => setTimeout(r, 2000));
-                     desc = await tab.evaluate(() => document.querySelector('.html')?.innerText || null);
+                    addLog(`[Tentativa ${retries + 1}] Descrição nula ou vazia para ${item.url}.`);
+                    retries++;
+                    continue;
                 }
 
                 const cleanedDesc = cleanDescription(desc);
@@ -228,17 +259,19 @@ async function runScraper() {
                   stats.newItemsLastCycle++;
                   success = true;
                 } else {
-                    addLog(`Descrição inválida ou página de erro para ${item.url}.`);
+                    addLog(`[Tentativa ${retries + 1}] Descrição inválida para ${item.url}.`);
+                    retries++;
                 }
 
               } catch (e) { 
-                addLog(`Erro ao minerar ${item.url}: ${e.message.split('\n')[0]}`);
+                addLog(`[Tentativa ${retries + 1}] Erro ao minerar ${item.url}: ${e.message.split('\n')[0]}`);
                 retries++; 
-              } finally {
-                stats.progressCurrent++;
               }
             }
-            if (!success) {
+            if (success) {
+                stats.progressCurrent++;
+            } else {
+                addLog(`FALHA FINAL para ${item.url} após 3 tentativas.`);
                 stats.failedItemsCount++;
             }
           }
