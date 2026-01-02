@@ -214,7 +214,6 @@ async function runScraper() {
 
                 if (response.status() === 503) {
                     const waitTime = (retries * 5000) + (Math.random() * 5000);
-                    addLog(`[Tentativa ${retries + 1}] Status 503 para ${item.url}. Tentando novamente em ${Math.round(waitTime / 1000)}s...`);
                     await new Promise(r => setTimeout(r, waitTime));
                     retries++;
                     continue;
@@ -261,12 +260,10 @@ async function runScraper() {
                   stats.newItemsLastCycle++;
                   success = true;
                 } else {
-                    addLog(`[Tentativa ${retries + 1}] Descrição inválida para ${item.url}.`);
                     retries++;
                 }
 
               } catch (e) { 
-                addLog(`[Tentativa ${retries + 1}] Erro ao minerar ${item.url}: ${e.message.split('\n')[0]}`);
                 retries++; 
               }
             }
