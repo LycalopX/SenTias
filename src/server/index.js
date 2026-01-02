@@ -1,50 +1,75 @@
-
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { CONCURRENCY_LIMIT, PORT } = require('../config');
-
-const STATS_PATH = path.join(__dirname, '../../data', 'stats.json');
-const STOP_PATH = path.join(__dirname, '../../data', 'stop');
+const { PORT, CONCURRENCY_LIMIT } = require('../config');
+const { stats, stopRequested } = require('../state');
+const { runScraper } = require('../scraper/doorzo');
 
 const server = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // API para Status
   if (req.url === '/api/stats') {
-    fs.readFile(STATS_PATH, 'utf8', (err, data) => {
-      if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Error loading stats.');
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(data);
-    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(stats));
+    return;
+  }
+
+  // API para Iniciar o Scraper
+  if (req.url === '/api/start' && req.method === 'POST') {
+    if (stats.status === 'Parado' || stats.status === "Aguardando comando") {
+        stopRequested.status = false;
+        stats.status = 'Em Espera'; // O loop vai pegar esse status
+        console.log("Comando de início recebido. O próximo ciclo começará em breve.");
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, message: "Scraper start command received." }));
     return;
   }
 
   // API para Parar o Programa
   if (req.url === '/api/stop' && req.method === 'POST') {
-    fs.writeFileSync(STOP_PATH, '');
+    stopRequested.status = true;
+    console.log("Comando de parada recebido. O scraper irá parar após a conclusão do item atual.");
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true }));
+    res.end(JSON.stringify({ success: true, message: "Scraper stop command sent." }));
     return;
   }
 
   // Frontend
-  const dashboardPath = path.join(__dirname, 'dashboard.html');
-  fs.readFile(dashboardPath, 'utf8', (err, data) => {
-    if (err) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Error loading dashboard.');
-      return;
-    }
+  if (req.url === '/') {
+    const dashboardPath = path.join(__dirname, 'dashboard.html');
+    fs.readFile(dashboardPath, 'utf8', (err, data) => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Error loading dashboard.');
+        return;
+      }
 
-    const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', CONCURRENCY_LIMIT);
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(html);
-  });
+      const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', CONCURRENCY_LIMIT);
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(html);
+    });
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not Found');
 });
 
-server.listen(PORT);
+server.listen(PORT, () => {
+    console.log(`Dashboard rodando em http://localhost:${PORT}`);
+    console.log('Iniciando o bot do scraper...');
+    stats.status = 'Aguardando comando';
+    runScraper();
+});
 
 module.exports = server;

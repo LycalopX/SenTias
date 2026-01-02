@@ -10,8 +10,12 @@
             .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
             .accent { color: #f59e0b; }
             .progress-bar { transition: width 0.3s ease-in-out; }
-            .btn-stop { background: #dc2626; transition: all 0.2s; }
-            .btn-stop:hover { background: #b91c1c; transform: scale(1.02); }
+            .btn { transition: all 0.2s; }
+            .btn:hover { transform: scale(1.02); }
+            .btn-stop { background: #dc2626; }
+            .btn-stop:hover { background: #b91c1c; }
+            .btn-start { background: #16a34a; }
+            .btn-start:hover { background: #15803d; }
         </style>
     </head>
     <body class="p-8">
@@ -21,8 +25,9 @@
                     <h1 class="text-3xl font-bold accent">Doorzo Scraper <span class="text-white text-sm font-normal">Controle Manual</span></h1>
                     <p class="text-slate-400">Gerenciamento de mineração perpétua</p>
                 </div>
-                <div class="flex gap-4">
-                    <button onclick="stopScraper()" id="stop-btn" class="btn-stop px-6 py-2 rounded-lg font-bold shadow-lg">Finalizar e Salvar Agora</button>
+                <div class="flex gap-4 items-center">
+                    <button onclick="startScraper()" id="start-btn" class="btn btn-start px-6 py-2 rounded-lg font-bold shadow-lg" style="display: none;">Iniciar Bot</button>
+                    <button onclick="stopScraper()" id="stop-btn" class="btn btn-stop px-6 py-2 rounded-lg font-bold shadow-lg">Finalizar e Salvar Agora</button>
                     <div id="status-badge" class="px-4 py-2 rounded-full bg-blue-600 text-sm font-bold uppercase tracking-wider flex items-center">Carregando...</div>
                 </div>
             </header>
@@ -41,11 +46,12 @@
                     <p id="last-update" class="text-2xl font-bold mt-3">-</p>
                 </div>
                 <div class="card">
-                    <p class="text-4xl font-bold mt-2 text-amber-500">${CONCURRENCY_LIMIT_PLACEHOLDER}</p>
+                    <p class="text-slate-400 text-sm">Workers</p>
+                    <p class="text-4xl font-bold mt-2 text-amber-500">CONCURRENCY_LIMIT_PLACEHOLDER</p>
                 </div>
             </div>
 
-            <div id="progress-section" class="mb-8 hidden">
+            <div id="progress-section" class="mb-8" style="display: none;">
                 <div class="flex justify-between mb-2 text-sm font-medium">
                     <span>Progresso de Checagem de Descrição</span>
                     <span id="progress-text" class="accent">0/0</span>
@@ -61,13 +67,13 @@
                     <div id="log-container" class="h-96 overflow-y-auto text-sm font-mono space-y-1 bg-black/30 p-4 rounded-lg"></div>
                 </div>
                 <div class="card">
-                    <h2 class="text-xl font-bold mb-4">Meta</h2>
+                    <h2 class="text-xl font-bold mb-4">Meta de Preço</h2>
                     <div id="current-range" class="p-4 bg-slate-800 rounded-lg text-center border border-amber-500/30 font-bold">-</div>
                     <div class="mt-6 text-sm text-slate-500">
                         <p class="mb-2 font-bold text-slate-300">Regras de Salvamento:</p>
                         <ul class="list-disc ml-4 space-y-2">
-                            <li>Se usar o botão: <span class="text-blue-400">Anexa</span> novos itens ao banco atual.</li>
-                            <li>No fim do ciclo: <span class="text-green-400">Limpa</span> itens antigos/vendidos.</li>
+                            <li>Se usar o botão "Finalizar": <span class="text-blue-400">Anexa</span> novos itens ao banco atual. Não deleta nada.</li>
+                            <li>No fim do ciclo automático: <span class="text-green-400">Limpa</span> itens que saíram de venda do banco de dados.</li>
                         </ul>
                     </div>
                 </div>
@@ -75,13 +81,31 @@
         </div>
 
         <script>
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+
+            async function startScraper() {
+                if(!confirm("Deseja iniciar o ciclo de mineração?")) return;
+                try {
+                    await fetch('/api/start', { method: 'POST' });
+                    startBtn.innerText = "Iniciando...";
+                    startBtn.disabled = true;
+                } catch(e) {
+                    console.error("Falha ao iniciar:", e);
+                    startBtn.disabled = false;
+                    startBtn.innerText = "Iniciar Bot";
+                }
+            }
+
             async function stopScraper() {
-                if(!confirm("Deseja interromper a mineração e salvar os itens capturados até agora?")) return;
+                if(!confirm("Deseja interromper a mineração e salvar os itens capturados até agora? O bot ficará pausado até ser iniciado novamente.")) return;
                 try {
                     await fetch('/api/stop', { method: 'POST' });
-                    document.getElementById('stop-btn').innerText = "Encerrando...";
-                    document.getElementById('stop-btn').disabled = true;
-                } catch(e) {}
+                    stopBtn.innerText = "Encerrando...";
+                    stopBtn.disabled = true;
+                } catch(e) {
+                    console.error("Falha ao parar:", e);
+                }
             }
 
             async function updateDashboard() {
@@ -90,27 +114,54 @@
                     const data = await res.json();
                     
                     document.getElementById('status-badge').innerText = data.status;
-                    document.getElementById('status-badge').className = `px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider ${data.status.includes('Minerando') ? 'bg-amber-600' : (data.status.includes('Erro') ? 'bg-red-600' : 'bg-green-600')}`;
+                    const statusClass = {
+                        'Minerando Descrições': 'bg-amber-600',
+                        'Pesquisando': 'bg-blue-600',
+                        'Em Espera': 'bg-green-600',
+                        'Parado': 'bg-slate-600',
+                        'Aguardando comando': 'bg-slate-600',
+                        'Erro Crítico': 'bg-red-800'
+                    }[data.status] || 'bg-gray-600';
+                    document.getElementById('status-badge').className = `px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider flex items-center ${statusClass}`;
                     
-                    document.getElementById('total-items').innerText = data.totalItems;
-                    document.getElementById('new-items').innerText = '+' + data.newItemsLastCycle;
-                    document.getElementById('last-update').innerText = data.lastUpdate;
-                    document.getElementById('current-range').innerText = data.currentRange || "Em Espera";
+                    // Controle dos botões
+                    if (data.status === 'Parado' || data.status === 'Aguardando comando' || data.status === 'Erro Crítico') {
+                        startBtn.style.display = 'inline-block';
+                        stopBtn.style.display = 'none';
+                        startBtn.disabled = false;
+                        startBtn.innerText = "Iniciar Bot";
+                    } else {
+                        startBtn.style.display = 'none';
+                        stopBtn.style.display = 'inline-block';
+                        stopBtn.disabled = false;
+                        stopBtn.innerText = "Finalizar e Salvar Agora";
+                    }
+
+
+                    document.getElementById('total-items').innerText = data.totalItems || 0;
+                    document.getElementById('new-items').innerText = '+' + (data.newItemsLastCycle || 0);
+                    document.getElementById('last-update').innerText = data.lastUpdate || '-';
+                    document.getElementById('current-range').innerText = data.currentRange || "N/A";
                     
                     if(data.progressTotal > 0) {
-                        document.getElementById('progress-section').classList.remove('hidden');
+                        document.getElementById('progress-section').style.display = 'block';
                         document.getElementById('progress-text').innerText = data.progressCurrent + ' / ' + data.progressTotal;
                         const pct = Math.floor((data.progressCurrent / data.progressTotal) * 100);
                         document.getElementById('progress-fill').style.width = pct + '%';
                     } else {
-                        document.getElementById('progress-section').classList.add('hidden');
+                        document.getElementById('progress-section').style.display = 'none';
                     }
 
                     const logBox = document.getElementById('log-container');
-                    logBox.innerHTML = data.logs.map(log => `<div class="border-b border-white/5 pb-1">${log}</div>`).join('');
-                } catch (e) {}
+                    logBox.innerHTML = (data.logs || []).map(log => `<div class="border-b border-white/5 pb-1">${log}</div>`).join('');
+                } catch (e) {
+                    console.error("Dashboard update failed:", e);
+                     document.getElementById('status-badge').innerText = "Offline";
+                     document.getElementById('status-badge').className = "px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider flex items-center bg-red-800";
+                }
             }
-            setInterval(updateDashboard, 2000);
+            setInterval(updateDashboard, 1500);
+            updateDashboard(); // Initial call
         </script>
     </body>
     </html>
