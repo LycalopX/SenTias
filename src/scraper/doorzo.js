@@ -72,18 +72,16 @@ async function runScraper() {
         stats.currentRange = `¥${range.min} - ¥${range.max}`;
         addLog(`Iniciando busca: ${stats.currentRange}`);
         
-        let lotNumbers = [];
-        const updateLotsLine = (newLotNumber) => {
-            lotNumbers.push(newLotNumber);
-            const lotsStr = lotNumbers.join(', ');
-            const plural = lotNumbers.length > 1;
-            process.stdout.write(`Lote${plural ? 's' : ''} ${lotsStr} aberto${plural ? 's' : ''} para esta faixa.\r`);
+        let lotsInThisRange = 0;
+        const updateLotsLine = () => {
+            process.stdout.write(`Lotes abertos nesta faixa: ${lotsInThisRange}\r`);
         }
 
         try {
           await mainPage.goto(`https://www.doorzo.com/pt/search?keywords=${encodeURIComponent(searchTerm)}&price_min=${range.min}&price_max=${range.max}`, { waitUntil: 'networkidle2', timeout: 45000 });
           stats.lotsFound++;
-          updateLotsLine(lotNumbers.length + 1);
+          lotsInThisRange++;
+          updateLotsLine();
 
           const moreBtnSelector = '.more a, .more button';
           for (let p = 0; p < 35; p++) {
@@ -99,7 +97,8 @@ async function runScraper() {
               if (!busy) {
                 await mainPage.evaluate(sel => document.querySelector(sel)?.click(), moreBtnSelector);
                 stats.lotsFound++;
-                updateLotsLine(lotNumbers.length + 1);
+                lotsInThisRange++;
+                updateLotsLine();
                 await new Promise(r => setTimeout(r, 1500));
               } else { await new Promise(r => setTimeout(r, 2000)); p--; }
             } else break;
