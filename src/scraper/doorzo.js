@@ -11,11 +11,11 @@ const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../s
 const FILENAME_ALL_PATH = path.join(__dirname, '../../data', FILENAME_ALL);
 
 function addLog(msg) {
-    const time = new Date().toLocaleTimeString();
-    const entry = `[${time}] ${msg}`;
-    console.log(entry);
-    stats.logs.unshift(entry);
-    if (stats.logs.length > 50) stats.logs.pop();
+  const time = new Date().toLocaleTimeString();
+  const entry = `[${time}] ${msg}`;
+  console.log(entry);
+  stats.logs.unshift(entry);
+  if (stats.logs.length > 50) stats.logs.pop();
 }
 
 async function runScraper() {
@@ -44,10 +44,10 @@ async function runScraper() {
       let catalog = [];
       if (fs.existsSync(FILENAME_ALL_PATH)) {
         try {
-            catalog = JSON.parse(fs.readFileSync(FILENAME_ALL_PATH, 'utf8'));
+          catalog = JSON.parse(fs.readFileSync(FILENAME_ALL_PATH, 'utf8'));
         } catch (e) {
-            addLog("Erro ao ler ou parsear o catalogo JSON. Começando com um catalogo vazio.");
-            catalog = [];
+          addLog("Erro ao ler ou parsear o catalogo JSON. Começando com um catalogo vazio.");
+          catalog = [];
         }
       }
       catalog.forEach(item => item.on = false);
@@ -57,11 +57,11 @@ async function runScraper() {
       stats.totalItems = catalog.length;
 
       if (stopRequested.status) {
-          stats.status = "Aguardando comando";
-          await new Promise(r => setTimeout(r, 5000)); // wait before checking again
-          continue;
+        stats.status = "Aguardando comando";
+        await new Promise(r => setTimeout(r, 5000)); // wait before checking again
+        continue;
       }
-      
+
       let allFoundItems = [];
       const mainPage = await browser.instance.newPage();
       await mainPage.setRequestInterception(true);
@@ -75,7 +75,7 @@ async function runScraper() {
         if (stopRequested.status) break;
         stats.currentRange = `¥${range.min} - ¥${range.max}`;
         addLog(`Iniciando busca: ${stats.currentRange}`);
-        
+
         let lotsInThisRange = 0;
 
         try {
@@ -116,9 +116,9 @@ async function runScraper() {
             }));
           });
           allFoundItems.push(...items);
-        } catch (e) { 
-            process.stdout.write('\n');
-            addLog(`Erro na faixa ${stats.currentRange}: ${e.message}`); 
+        } catch (e) {
+          process.stdout.write('\n');
+          addLog(`Erro na faixa ${stats.currentRange}: ${e.message}`);
         }
       }
       await mainPage.close();
@@ -132,22 +132,27 @@ async function runScraper() {
       const blacklist = ["フィルム", "カバー", "ケース", "充電器", "ACアダプター", "タッチペン", "ケーブル", "ポーチ", "ソフト"];
       const keywords = ['new', '3ds', 'll'];
 
+      const globalMinPrice = priceRanges.length > 0 ? priceRanges[0].min : 0;
+      const globalMaxPrice = priceRanges.length > 0 ? priceRanges[priceRanges.length - 1].max : Infinity;
+
       uniqueItems.forEach(item => {
         const id = getUniqueId(item.url);
         if (blacklist.some(word => item.nome.includes(word)) || item.sold) return;
+
+        if (item.preco_iene < globalMinPrice || item.preco_iene > globalMaxPrice) return;
 
         const lowerCaseName = item.nome.toLowerCase();
         const hasAllKeywords = keywords.every(kw => lowerCaseName.includes(kw));
 
         if (!hasAllKeywords) {
-            return;
+          return;
         }
 
         const existingItem = catalog.find(c => getUniqueId(c.url) === id);
         if (existingItem) {
-            existingItem.on = true; 
+          existingItem.on = true;
         } else {
-            toScrape.push(item);
+          toScrape.push(item);
         }
       });
 
@@ -161,17 +166,17 @@ async function runScraper() {
         let lastProgress = -1;
         const WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
         const watchdogIntervalId = setInterval(() => {
-            if (stats.status !== "Minerando Descrições") {
-                clearInterval(watchdogIntervalId);
-                return;
-            }
-            if (stats.progressCurrent === lastProgress) {
-                addLog(`WATCHDOG: O progresso não muda há 5 minutos. O scraper pode estar travado. Encerrando o processo...`);
-                process.exit(1); // Força a saída
-            }
-            lastProgress = stats.progressCurrent;
+          if (stats.status !== "Minerando Descrições") {
+            clearInterval(watchdogIntervalId);
+            return;
+          }
+          if (stats.progressCurrent === lastProgress) {
+            addLog(`WATCHDOG: O progresso não muda há 5 minutos. O scraper pode estar travado. Encerrando o processo...`);
+            process.exit(1); // Força a saída
+          }
+          lastProgress = stats.progressCurrent;
         }, WATCHDOG_INTERVAL_MS);
-        
+
         let currentIndex = 0;
         const createWorker = async () => {
           let tab;
@@ -179,17 +184,17 @@ async function runScraper() {
 
           while (currentIndex < toScrape.length && !stopRequested.status) {
             if (!tab) {
-                tab = await browser.instance.newPage();
-                await tab.setRequestInterception(true);
-                tab.on('request', r => (['image', 'font', 'media'].includes(r.resourceType()) || r.url().includes('google')) ? r.abort() : r.continue());
-                await tab.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+              tab = await browser.instance.newPage();
+              await tab.setRequestInterception(true);
+              tab.on('request', r => (['image', 'font', 'media'].includes(r.resourceType()) || r.url().includes('google')) ? r.abort() : r.continue());
+              await tab.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
             }
 
             const item = toScrape[currentIndex++];
             if (!item) break;
 
             if (uses >= RECYCLE_THRESHOLD) {
-              await tab.close().catch(() => {});
+              await tab.close().catch(() => { });
               tab = null;
               uses = 0;
               continue;
@@ -203,25 +208,25 @@ async function runScraper() {
                 const response = await tab.goto(item.url, { waitUntil: 'networkidle2', timeout: 30000 });
 
                 if (response.status() === 403) {
-                    addLog(`[Item Falho] Acesso negado (403) para ${item.url}.`);
-                    break; 
+                  addLog(`[Item Falho] Acesso negado (403) para ${item.url}.`);
+                  break;
                 }
                 const pageContent = await tab.content();
                 if (pageContent.includes('Verifique se você é humano') || pageContent.includes('captcha') || pageContent.includes('Access Denied')) {
-                    addLog(`[Item Falho] Captcha/Verificação humana detectada para ${item.url}.`);
-                    break; 
+                  addLog(`[Item Falho] Captcha/Verificação humana detectada para ${item.url}.`);
+                  break;
                 }
 
                 if (response.status() === 503) {
-                    const waitTime = (retries * 5000) + (Math.random() * 5000);
-                    await new Promise(r => setTimeout(r, waitTime));
-                    retries++;
-                    continue;
+                  const waitTime = (retries * 5000) + (Math.random() * 5000);
+                  await new Promise(r => setTimeout(r, waitTime));
+                  retries++;
+                  continue;
                 }
 
                 const descriptionSelector = '.html';
                 const jsonLdSelector = 'script[type="application/ld+json"]';
-                
+
                 await tab.waitForFunction(
                   (descSel, jsonSel) => {
                     const htmlDiv = document.querySelector(descSel);
@@ -231,7 +236,7 @@ async function runScraper() {
                   { timeout: 10000 }
                   , descriptionSelector, jsonLdSelector
                 ).catch(() => { /* continue if not found, will be handled by desc === null */ });
-                
+
 
                 let desc = await tab.evaluate((descSel, jsonSel) => {
                   const scripts = Array.from(document.querySelectorAll(jsonSel));
@@ -241,14 +246,14 @@ async function runScraper() {
                       const graph = json['@graph'] || [json];
                       const prod = graph.find(obj => obj['@type'] === 'Product');
                       if (prod && prod.description) return prod.description;
-                    } catch (e) {}
+                    } catch (e) { }
                   }
                   return document.querySelector(descSel)?.innerText || null;
                 }, descriptionSelector, jsonLdSelector);
-                
+
                 if (desc === null) {
-                    retries++;
-                    continue;
+                  retries++;
+                  continue;
                 }
 
                 const cleanedDesc = cleanDescription(desc);
@@ -260,21 +265,21 @@ async function runScraper() {
                   stats.newItemsLastCycle++;
                   success = true;
                 } else {
-                    retries++;
+                  retries++;
                 }
 
-              } catch (e) { 
-                retries++; 
+              } catch (e) {
+                retries++;
               }
             }
             if (success) {
-                stats.progressCurrent++;
+              stats.progressCurrent++;
             } else {
-                addLog(`FALHA FINAL para ${item.url} após 3 tentativas.`);
-                stats.failedItemsCount++;
+              addLog(`FALHA FINAL para ${item.url} após 3 tentativas.`);
+              stats.failedItemsCount++;
             }
           }
-          if (tab) await tab.close().catch(() => {});
+          if (tab) await tab.close().catch(() => { });
         };
 
         await Promise.all(Array(CONCURRENCY_LIMIT).fill(0).map(() => createWorker()));
@@ -282,14 +287,14 @@ async function runScraper() {
       }
 
       // --- NOVA LÓGICA DE SALVAMENTO v2 ---
-      
+
       // 1. Salvar os itens recém-descobertos no arquivo de "novos"
       const FILENAME_NEW_PATH = path.join(__dirname, '../../data', FILENAME_NEW);
       try {
         fs.writeFileSync(FILENAME_NEW_PATH, JSON.stringify(newlyScrapedThisCycle, null, 2));
         addLog(`Salvo ${newlyScrapedThisCycle.length} novos itens em ${FILENAME_NEW}.`);
       } catch (e) {
-          addLog(`Falha Crítica ao escrever no arquivo de novos itens: ${e.message}`);
+        addLog(`Falha Crítica ao escrever no arquivo de novos itens: ${e.message}`);
       }
 
       // 2. Criar e salvar o novo catálogo completo e podado
@@ -303,19 +308,19 @@ async function runScraper() {
       finalCatalog.forEach(item => finalCatalogMap.set(getUniqueId(item.url), item));
 
       const finalCatalogUnique = Array.from(finalCatalogMap.values());
-      
+
       try {
         fs.writeFileSync(FILENAME_ALL_PATH, JSON.stringify(finalCatalogUnique, null, 2));
         addLog(`Catálogo completo atualizado com ${finalCatalogUnique.length} itens em ${FILENAME_ALL}.`);
       } catch (e) {
-          addLog(`Falha Crítica ao escrever no catálogo completo: ${e.message}`);
+        addLog(`Falha Crítica ao escrever no catálogo completo: ${e.message}`);
       }
-      
-      if(stopRequested.status) {
-          stopRequested.status = false; 
-          stats.status = "Parado";
+
+      if (stopRequested.status) {
+        stopRequested.status = false;
+        stats.status = "Parado";
       }
-      
+
       stats.lastUpdate = new Date().toLocaleTimeString();
       stats.totalItems = finalCatalogUnique.length;
       if (stats.status !== "Parado") {
