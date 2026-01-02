@@ -29,7 +29,8 @@ async function runScraper() {
       stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
       stats.progressTotal = 0;
-      stats.lotsFound = 0; // Reset lotsFound at the beginning of each cycle
+      stats.lotsFound = 0;
+      stats.totalItemsFound = 0;
 
       // 1. Snapshot Imutável
       let catalog = [];
@@ -94,6 +95,8 @@ async function runScraper() {
         } catch (e) { addLog(`Erro na faixa ${stats.currentRange}: ${e.message}`); }
       }
       await mainPage.close();
+
+      stats.totalItemsFound = allFoundItems.length;
 
       if (stopRequested.status) continue;
 
@@ -163,8 +166,9 @@ async function runScraper() {
                 uses++;
                 const response = await tab.goto(item.url, { waitUntil: 'networkidle2', timeout: 30000 });
                 if (response.status() === 503) {
-                    addLog(`Recebido status 503 para ${item.url}. Tentando novamente em 5s...`);
-                    await new Promise(r => setTimeout(r, 5000));
+                    const waitTime = (retries * 5000) + (Math.random() * 5000);
+                    addLog(`Recebido status 503 para ${item.url}. Tentando novamente em ${Math.round(waitTime / 1000)}s...`);
+                    await new Promise(r => setTimeout(r, waitTime));
                     retries++;
                     continue;
                 }
