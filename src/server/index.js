@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { PORT, CONCURRENCY_LIMIT } = require('../config');
+const { PORT, CONCURRENCY_LIMIT, FILENAME } = require('../config');
 const { stats, stopRequested } = require('../state');
 const { runScraper } = require('../scraper/doorzo');
 
@@ -21,6 +21,23 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/stats') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats));
+    return;
+  }
+
+    // API para Download do Catálogo
+  if (req.url === '/api/download') {
+    const filePath = path.join(__dirname, '../../data', FILENAME);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('File not found.');
+        return;
+      }
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${FILENAME}"`);
+      res.writeHead(200);
+      res.end(data);
+    });
     return;
   }
 

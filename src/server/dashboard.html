@@ -16,6 +16,8 @@
             .btn-stop:hover { background: #b91c1c; }
             .btn-start { background: #16a34a; }
             .btn-start:hover { background: #15803d; }
+            .btn-download { background: #0e7490; }
+            .btn-download:hover { background: #155e75; }
         </style>
     </head>
     <body class="p-8">
@@ -26,6 +28,7 @@
                     <p class="text-slate-400">Gerenciamento de mineração perpétua</p>
                 </div>
                 <div class="flex gap-4 items-center">
+                    <a href="/api/download" id="download-btn" class="btn btn-download px-6 py-2 rounded-lg font-bold shadow-lg">Download Catálogo</a>
                     <button onclick="startScraper()" id="start-btn" class="btn btn-start px-6 py-2 rounded-lg font-bold shadow-lg" style="display: none;">Iniciar Bot</button>
                     <button onclick="stopScraper()" id="stop-btn" class="btn btn-stop px-6 py-2 rounded-lg font-bold shadow-lg">Finalizar e Salvar Agora</button>
                     <div id="status-badge" class="px-4 py-2 rounded-full bg-blue-600 text-sm font-bold uppercase tracking-wider flex items-center">Carregando...</div>
@@ -71,7 +74,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 card">
-                    <h2 class="text-xl font-bold mb-4">📋 Console de Eventos</h2>
+                    <h2 class="text-xl font-bold mb-4">📋 Console Geral</h2>
                     <div id="log-container" class="h-96 overflow-y-auto text-sm font-mono space-y-1 bg-black/30 p-4 rounded-lg"></div>
                 </div>
                 <div class="card">
