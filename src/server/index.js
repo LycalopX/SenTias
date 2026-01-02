@@ -68,14 +68,30 @@ const server = http.createServer((req, res) => {
 
 function getLocalIp() {
     const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal) {
-                return net.address;
+    const prioritizedInterfaces = ['Ethernet', 'Wi-Fi', 'wlan0', 'eth0'];
+    let fallbackIp = null;
+
+    for (const name of prioritizedInterfaces) {
+        if (nets[name]) {
+            for (const net of nets[name]) {
+                if (net.family === 'IPv4' && !net.internal) {
+                    return net.address;
+                }
             }
         }
     }
-    return '0.0.0.0';
+
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                if (!fallbackIp) {
+                    fallbackIp = net.address;
+                }
+            }
+        }
+    }
+    
+    return fallbackIp || '0.0.0.0';
 }
 
 const localIp = getLocalIp();
