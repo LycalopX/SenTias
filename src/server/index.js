@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { PORT, CONCURRENCY_LIMIT } = require('../config');
 const { stats, stopRequested } = require('../state');
 const { runScraper } = require('../scraper/doorzo');
@@ -65,9 +66,25 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-server.listen(PORT, () => {
-    console.log(`Dashboard rodando em http://localhost:${PORT}`);
-    console.log('Iniciando o bot do scraper...');
+function getLocalIp() {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                return net.address;
+            }
+        }
+    }
+    return '0.0.0.0';
+}
+
+const localIp = getLocalIp();
+
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Dashboard rodando! Acesse de um dos seguintes endereços:`);
+    console.log(`- No seu computador: http://localhost:${PORT}`);
+    console.log(`- Na sua rede local: http://${localIp}:${PORT}`);
+    console.log('\nIniciando o bot do scraper...');
     stats.status = 'Aguardando comando';
     runScraper();
 });
