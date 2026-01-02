@@ -5,11 +5,8 @@ module.exports = {
     PORT: 3000, 
     CONCURRENCY_LIMIT: 5, 
     RECYCLE_THRESHOLD: 20, 
-    WAIT_BETWEEN_CYCLES: 1000 * 60 * 10, 
+    WAIT_BETWEEN_CYCLES: 5000, // Temporariamente reduzido para 5 segundos para testes
     priceRanges: [
-      { min: 22000, max: 24250 },
-      { min: 24251, max: 26500 },
-      { min: 26501, max: 28750 },
-      { min: 28751, max: 31000 }
+      { min: 22000, max: 24250 } // Temporariamente reduzido para 1 faixa para testes
     ]
 };

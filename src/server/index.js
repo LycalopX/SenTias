@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { PORT, CONCURRENCY_LIMIT, FILENAME } = require('../config');
+const { PORT, CONCURRENCY_LIMIT, FILENAME_ALL } = require('../config');
 const { stats, stopRequested } = require('../state');
 const { runScraper } = require('../scraper/doorzo');
 
@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
 
     // API para Download do Catálogo
   if (req.url === '/api/download') {
-    const filePath = path.join(__dirname, '../../data', FILENAME);
+    const filePath = path.join(__dirname, '../../data', FILENAME_ALL);
     fs.readFile(filePath, 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
         return;
       }
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="${FILENAME}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${FILENAME_ALL}"`);
       res.writeHead(200);
       res.end(data);
     });
