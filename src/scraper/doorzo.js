@@ -62,9 +62,17 @@ async function runScraper() {
         stats.currentRange = `¥${range.min} - ¥${range.max}`;
         addLog(`Iniciando busca: ${stats.currentRange}`);
         
+        let lotsInThisRange = 0;
+        const updateLotsLine = () => {
+            process.stdout.write(`Lotes abertos nesta faixa: ${lotsInThisRange}\r`);
+        }
+
         try {
           await mainPage.goto(`https://www.doorzo.com/pt/search?keywords=${encodeURIComponent(searchTerm)}&price_min=${range.min}&price_max=${range.max}`, { waitUntil: 'networkidle2', timeout: 45000 });
-          stats.lotsFound++; // Count initial page load as a lot
+          stats.lotsFound++;
+          lotsInThisRange++;
+          updateLotsLine();
+
           const moreBtnSelector = '.more a, .more button';
           for (let p = 0; p < 35; p++) {
             if (stopRequested.status) break;
@@ -78,12 +86,15 @@ async function runScraper() {
               const busy = await mainPage.evaluate(sel => document.querySelector(sel)?.disabled || document.querySelector(sel)?.classList.contains('is-loading'), moreBtnSelector);
               if (!busy) {
                 await mainPage.evaluate(sel => document.querySelector(sel)?.click(), moreBtnSelector);
-                stats.lotsFound++; // Increment lotsFound
+                stats.lotsFound++;
+                lotsInThisRange++;
+                updateLotsLine();
                 await new Promise(r => setTimeout(r, 1500));
               } else { await new Promise(r => setTimeout(r, 2000)); p--; }
             } else break;
           }
 
+          process.stdout.write('\n');
           const items = await mainPage.evaluate(() => {
             return Array.from(document.querySelectorAll('.goods-item')).map(item => ({
               nome: item.querySelector('.goods-name')?.innerText || "",
@@ -93,7 +104,10 @@ async function runScraper() {
             }));
           });
           allFoundItems.push(...items);
-        } catch (e) { addLog(`Erro na faixa ${stats.currentRange}: ${e.message}`); }
+        } catch (e) { 
+            process.stdout.write('\n');
+            addLog(`Erro na faixa ${stats.currentRange}: ${e.message}`); 
+        }
       }
       await mainPage.close();
 
