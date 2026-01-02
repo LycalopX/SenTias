@@ -1,4 +1,4 @@
-let browser;
+let browser = {};
 let originalCatalogSnapshot = [];
 let stopRequested = { status: false };
 let stats = {
