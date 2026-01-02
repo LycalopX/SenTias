@@ -1,5 +1,7 @@
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { stats, stopRequested } = require('../state');
 const { addLog } = require('../utils');
 const { CONCURRENCY_LIMIT, PORT } = require('../config');
@@ -22,125 +24,18 @@ const server = http.createServer((req, res) => {
   }
 
   // Frontend
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(`
-    <!DOCTYPE html>
-    <html lang="pt">
-    <head>
-        <meta charset="UTF-8">
-        <title>Doorzo Scraper Dashboard</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <style>
-            body { background: #0f172a; color: #f8fafc; font-family: sans-serif; }
-            .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
-            .accent { color: #f59e0b; }
-            .progress-bar { transition: width 0.3s ease-in-out; }
-            .btn-stop { background: #dc2626; transition: all 0.2s; }
-            .btn-stop:hover { background: #b91c1c; transform: scale(1.02); }
-        </style>
-    </head>
-    <body class="p-8">
-        <div class="max-w-6xl mx-auto">
-            <header class="flex justify-between items-center mb-8">
-                <div>
-                    <h1 class="text-3xl font-bold accent">Doorzo Scraper <span class="text-white text-sm font-normal">Controle Manual</span></h1>
-                    <p class="text-slate-400">Gerenciamento de mineração perpétua</p>
-                </div>
-                <div class="flex gap-4">
-                    <button onclick="stopScraper()" id="stop-btn" class="btn-stop px-6 py-2 rounded-lg font-bold shadow-lg">Finalizar e Salvar Agora</button>
-                    <div id="status-badge" class="px-4 py-2 rounded-full bg-blue-600 text-sm font-bold uppercase tracking-wider flex items-center">Carregando...</div>
-                </div>
-            </header>
+  const dashboardPath = path.join(__dirname, 'dashboard.html');
+  fs.readFile(dashboardPath, 'utf8', (err, data) => {
+    if (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Error loading dashboard.');
+      return;
+    }
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="card">
-                    <p class="text-slate-400 text-sm">No Banco de Dados</p>
-                    <p id="total-items" class="text-4xl font-bold mt-2">-</p>
-                </div>
-                <div class="card">
-                    <p class="text-slate-400 text-sm">Minerados (Ciclo Atual)</p>
-                    <p id="new-items" class="text-4xl font-bold mt-2 text-green-400">-</p>
-                </div>
-                <div class="card">
-                    <p class="text-slate-400 text-sm">Último Checkpoint</p>
-                    <p id="last-update" class="text-2xl font-bold mt-3">-</p>
-                </div>
-                <div class="card">
-                    <p class="text-slate-400 text-sm">Workers</p>
-                    <p class="text-4xl font-bold mt-2 text-amber-500">${CONCURRENCY_LIMIT}</p>
-                </div>
-            </div>
-
-            <div id="progress-section" class="mb-8 hidden">
-                <div class="flex justify-between mb-2 text-sm font-medium">
-                    <span>Progresso de Checagem de Descrição</span>
-                    <span id="progress-text" class="accent">0/0</span>
-                </div>
-                <div class="w-full bg-slate-700 rounded-full h-4">
-                    <div id="progress-fill" class="bg-amber-500 h-4 rounded-full progress-bar" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 card">
-                    <h2 class="text-xl font-bold mb-4">📋 Console de Eventos</h2>
-                    <div id="log-container" class="h-96 overflow-y-auto text-sm font-mono space-y-1 bg-black/30 p-4 rounded-lg"></div>
-                </div>
-                <div class="card">
-                    <h2 class="text-xl font-bold mb-4">Meta</h2>
-                    <div id="current-range" class="p-4 bg-slate-800 rounded-lg text-center border border-amber-500/30 font-bold">-</div>
-                    <div class="mt-6 text-sm text-slate-500">
-                        <p class="mb-2 font-bold text-slate-300">Regras de Salvamento:</p>
-                        <ul class="list-disc ml-4 space-y-2">
-                            <li>Se usar o botão: <span class="text-blue-400">Anexa</span> novos itens ao banco atual.</li>
-                            <li>No fim do ciclo: <span class="text-green-400">Limpa</span> itens antigos/vendidos.</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            async function stopScraper() {
-                if(!confirm("Deseja interromper a mineração e salvar os itens capturados até agora?")) return;
-                try {
-                    await fetch('/api/stop', { method: 'POST' });
-                    document.getElementById('stop-btn').innerText = "Encerrando...";
-                    document.getElementById('stop-btn').disabled = true;
-                } catch(e) {}
-            }
-
-            async function updateDashboard() {
-                try {
-                    const res = await fetch('/api/stats');
-                    const data = await res.json();
-                    
-                    document.getElementById('status-badge').innerText = data.status;
-                    document.getElementById('status-badge').className = `px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider ${data.status.includes('Minerando') ? 'bg-amber-600' : (data.status.includes('Erro') ? 'bg-red-600' : 'bg-green-600')}`;
-                    
-                    document.getElementById('total-items').innerText = data.totalItems;
-                    document.getElementById('new-items').innerText = '+' + data.newItemsLastCycle;
-                    document.getElementById('last-update').innerText = data.lastUpdate;
-                    document.getElementById('current-range').innerText = data.currentRange || "Em Espera";
-                    
-                    if(data.progressTotal > 0) {
-                        document.getElementById('progress-section').classList.remove('hidden');
-                        document.getElementById('progress-text').innerText = data.progressCurrent + ' / ' + data.progressTotal;
-                        const pct = Math.floor((data.progressCurrent / data.progressTotal) * 100);
-                        document.getElementById('progress-fill').style.width = pct + '%';
-                    } else {
-                        document.getElementById('progress-section').classList.add('hidden');
-                    }
-
-                    const logBox = document.getElementById('log-container');
-                    logBox.innerHTML = data.logs.map(log => `<div class="border-b border-white/5 pb-1">${log}</div>`).join('');
-                } catch (e) {}
-            }
-            setInterval(updateDashboard, 2000);
-        </script>
-    </body>
-    </html>
-  `);
+    const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', CONCURRENCY_LIMIT);
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(html);
+  });
 });
 
 server.listen(PORT);

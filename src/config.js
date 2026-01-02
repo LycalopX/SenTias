@@ -10,10 +10,5 @@ module.exports = {
       { min: 24251, max: 26500 },
       { min: 26501, max: 28750 },
       { min: 28751, max: 31000 }
-    ],
-    getExecutablePath: () => {
-        if (process.platform === 'win32') return 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-        if (process.platform === 'darwin') return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-        return null;
-    }
+    ]
 };

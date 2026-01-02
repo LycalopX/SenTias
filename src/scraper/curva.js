@@ -1,6 +1,5 @@
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
-const { getExecutablePath } = require('../config');
 const path = require('path');
 
 (async () => {
@@ -14,7 +13,6 @@ const path = require('path');
 
   const browser = await puppeteer.launch({
     headless: false,
-    executablePath: getExecutablePath(),
     args: ['--window-size=1200,800', '--disable-dev-shm-usage', '--no-sandbox']
   });
 

@@ -1,6 +1,6 @@
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
-const { searchTerm, FILENAME, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, getExecutablePath } = require('../config');
+const { searchTerm, FILENAME, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges } = require('../config');
 const { stats, stopRequested, browser, originalCatalogSnapshot } = require('../state');
 const { getUniqueId, addLog } = require('../utils');
 const path = require('path');
@@ -8,10 +8,8 @@ const path = require('path');
 const FILENAME_PATH = path.join(__dirname, '../../data', FILENAME);
 
 async function runScraper() {
-  const execPath = getExecutablePath();
   stats.browser = await puppeteer.launch({
     headless: false,
-    executablePath: execPath,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720', '--disable-dev-shm-usage']
   });
 
