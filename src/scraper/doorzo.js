@@ -280,7 +280,9 @@ async function runScraper() {
         clearInterval(watchdogIntervalId); // Desarma o watchdog
       }
 
-      // --- NOVA LÓGICA DE SALVAMENTO ---
+      // --- NOVA LÓGICA DE SALVAMENTO v2 ---
+      
+      // 1. Salvar os itens recém-descobertos no arquivo de "novos"
       const FILENAME_NEW_PATH = path.join(__dirname, '../../data', FILENAME_NEW);
       try {
         fs.writeFileSync(FILENAME_NEW_PATH, JSON.stringify(newlyScrapedThisCycle, null, 2));
@@ -289,15 +291,21 @@ async function runScraper() {
           addLog(`Falha Crítica ao escrever no arquivo de novos itens: ${e.message}`);
       }
 
-      // Combina o catálogo que foi modificado ('on' = true para itens encontrados) com os novos
-      const combinedCatalog = [...catalog, ...newlyScrapedThisCycle];
-      
-      // Filtra para manter apenas os que foram encontrados nesta rodada
-      const finalCatalog = combinedCatalog.filter(item => item.on === true);
+      // 2. Criar e salvar o novo catálogo completo e podado
+      // Itens do catálogo anterior que foram encontrados de novo já estão com item.on = true
+      // Itens novos em newlyScrapedThisCycle também já têm item.on = true
+      const updatedOldCatalog = catalog.filter(item => item.on === true);
+      const finalCatalog = [...updatedOldCatalog, ...newlyScrapedThisCycle];
 
+      // Usar um Map para garantir que não haja duplicatas caso um item seja re-processado
+      const finalCatalogMap = new Map();
+      finalCatalog.forEach(item => finalCatalogMap.set(getUniqueId(item.url), item));
+
+      const finalCatalogUnique = Array.from(finalCatalogMap.values());
+      
       try {
-        fs.writeFileSync(FILENAME_ALL_PATH, JSON.stringify(finalCatalog, null, 2));
-        addLog(`Catálogo completo atualizado com ${finalCatalog.length} itens em ${FILENAME_ALL}.`);
+        fs.writeFileSync(FILENAME_ALL_PATH, JSON.stringify(finalCatalogUnique, null, 2));
+        addLog(`Catálogo completo atualizado com ${finalCatalogUnique.length} itens em ${FILENAME_ALL}.`);
       } catch (e) {
           addLog(`Falha Crítica ao escrever no catálogo completo: ${e.message}`);
       }
@@ -308,7 +316,7 @@ async function runScraper() {
       }
       
       stats.lastUpdate = new Date().toLocaleTimeString();
-      stats.totalItems = finalCatalog.length;
+      stats.totalItems = finalCatalogUnique.length;
       if (stats.status !== "Parado") {
         stats.status = "Em Espera";
         stats.progressTotal = 0;
