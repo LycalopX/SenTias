@@ -19,6 +19,10 @@ function addLog(msg) {
 }
 
 async function runScraper() {
+  if (!stats.startTime) {
+    stats.startTime = new Date();
+  }
+
   if (!browser.instance) {
     browser.instance = await puppeteer.launch({
       headless: false,

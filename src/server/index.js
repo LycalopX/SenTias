@@ -19,8 +19,10 @@ const server = http.createServer((req, res) => {
 
   // API para Status
   if (req.url === '/api/stats') {
+    const uptime = stats.startTime ? Math.floor((new Date() - new Date(stats.startTime)) / 1000) : 0;
+    const responseStats = { ...stats, uptime };
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(stats));
+    res.end(JSON.stringify(responseStats));
     return;
   }
 

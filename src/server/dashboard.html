@@ -35,7 +35,11 @@
                 </div>
             </header>
 
-            <div class="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-8 gap-6 mb-8">
+                <div class="card">
+                    <p class="text-slate-400 text-sm">Runtime</p>
+                    <p id="runtime" class="text-4xl font-bold mt-2">-</p>
+                </div>
                 <div class="card">
                     <p class="text-slate-400 text-sm">No Banco de Dados</p>
                     <p id="total-items" class="text-4xl font-bold mt-2">-</p>
@@ -154,6 +158,13 @@
                     document.getElementById('lots-found').innerText = data.lotsFound || 0;
                     document.getElementById('new-items').innerText = '+' + (data.newItemsLastCycle || 0);
                     document.getElementById('failed-items').innerText = data.failedItemsCount || 0;
+                    
+                    const seconds = data.uptime || 0;
+                    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                    const s = (seconds % 60).toString().padStart(2, '0');
+                    document.getElementById('runtime').innerText = `${h}:${m}:${s}`;
+                    
                     document.getElementById('last-scraped').innerText = data.lastScrapedName || '-';
                     document.getElementById('current-range').innerText = data.currentRange || "N/A";
                     
