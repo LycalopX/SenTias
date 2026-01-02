@@ -6,8 +6,21 @@
         <title>Doorzo Scraper Dashboard</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-            body { background: #0f172a; color: #f8fafc; font-family: sans-serif; }
-            .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+            body { 
+                background-image: url('/assets/latias.jpg');
+                background-size: cover;
+                background-position: center;
+                background-attachment: fixed;
+                color: #f8fafc; 
+                font-family: sans-serif; 
+            }
+            .card { 
+                background: rgba(30, 41, 59, 0.7); 
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(51, 65, 85, 0.5); 
+                border-radius: 12px; 
+                padding: 20px; 
+            }
             .accent { color: #f59e0b; }
             .progress-bar { transition: width 0.3s ease-in-out; }
             .btn { transition: all 0.2s; }
@@ -35,11 +48,7 @@
                 </div>
             </header>
 
-            <div class="grid grid-cols-1 md:grid-cols-8 gap-6 mb-8">
-                <div class="card">
-                    <p class="text-slate-400 text-sm">Runtime</p>
-                    <p id="runtime" class="text-4xl font-bold mt-2">-</p>
-                </div>
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
                 <div class="card">
                     <p class="text-slate-400 text-sm">No Banco de Dados</p>
                     <p id="total-items" class="text-4xl font-bold mt-2">-</p>
@@ -81,15 +90,21 @@
                     <h2 class="text-xl font-bold mb-4">📋 Console Geral</h2>
                     <div id="log-container" class="h-96 overflow-y-auto text-sm font-mono space-y-1 bg-black/30 p-4 rounded-lg"></div>
                 </div>
-                <div class="card">
-                    <h2 class="text-xl font-bold mb-4">Meta de Preço</h2>
-                    <div id="current-range" class="p-4 bg-slate-800 rounded-lg text-center border border-amber-500/30 font-bold">-</div>
-                    <div class="mt-6 text-sm text-slate-500">
-                        <p class="mb-2 font-bold text-slate-300">Regras de Salvamento:</p>
-                        <ul class="list-disc ml-4 space-y-2">
-                            <li>Se usar o botão "Finalizar": <span class="text-blue-400">Anexa</span> novos itens ao banco atual. Não deleta nada.</li>
-                            <li>No fim do ciclo automático: <span class="text-green-400">Limpa</span> itens que saíram de venda do banco de dados.</li>
-                        </ul>
+                <div>
+                    <div class="card mb-6">
+                        <p class="text-slate-400 text-sm">Runtime</p>
+                        <p id="runtime" class="text-4xl font-bold mt-2">-</p>
+                    </div>
+                    <div class="card">
+                        <h2 class="text-xl font-bold mb-4">Meta de Preço</h2>
+                        <div id="current-range" class="p-4 bg-slate-800 rounded-lg text-center border border-amber-500/30 font-bold">-</div>
+                        <div class="mt-6 text-sm text-slate-500">
+                            <p class="mb-2 font-bold text-slate-300">Regras de Salvamento:</p>
+                            <ul class="list-disc ml-4 space-y-2">
+                                <li>Se usar o botão "Finalizar": <span class="text-blue-400">Anexa</span> novos itens ao banco atual. Não deleta nada.</li>
+                                <li>No fim do ciclo automático: <span class="text-green-400">Limpa</span> itens que saíram de venda do banco de dados.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
