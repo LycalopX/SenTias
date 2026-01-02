@@ -73,12 +73,15 @@ async function runScraper() {
         addLog(`Iniciando busca: ${stats.currentRange}`);
         
         let lotsInThisRange = 0;
+        const updateLotsLine = () => {
+            process.stdout.write(`Lotes abertos nesta faixa: ${lotsInThisRange}\r`);
+        }
 
         try {
           await mainPage.goto(`https://www.doorzo.com/pt/search?keywords=${encodeURIComponent(searchTerm)}&price_min=${range.min}&price_max=${range.max}`, { waitUntil: 'networkidle2', timeout: 45000 });
           stats.lotsFound++;
           lotsInThisRange++;
-          addLog(`Lote ${lotsInThisRange} aberto para esta faixa.`);
+          updateLotsLine();
 
           const moreBtnSelector = '.more a, .more button';
           for (let p = 0; p < 35; p++) {
@@ -95,11 +98,13 @@ async function runScraper() {
                 await mainPage.evaluate(sel => document.querySelector(sel)?.click(), moreBtnSelector);
                 stats.lotsFound++;
                 lotsInThisRange++;
-                addLog(`Lote ${lotsInThisRange} aberto para esta faixa.`);
+                updateLotsLine();
                 await new Promise(r => setTimeout(r, 1500));
               } else { await new Promise(r => setTimeout(r, 2000)); p--; }
             } else break;
           }
+
+          process.stdout.write('\n');
 
           const items = await mainPage.evaluate(() => {
             return Array.from(document.querySelectorAll('.goods-item')).map(item => ({
@@ -241,7 +246,6 @@ async function runScraper() {
                 }, descriptionSelector, jsonLdSelector);
                 
                 if (desc === null) {
-                    addLog(`[Tentativa ${retries + 1}] Descrição nula ou vazia para ${item.url}.`);
                     retries++;
                     continue;
                 }
