@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const { searchTerm, FILENAME, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges } = require('../config');
-const { getUniqueId } = require('../utils');
+const { getUniqueId, cleanDescription } = require('../utils');
 const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../state');
 
 const FILENAME_PATH = path.join(__dirname, '../../data', FILENAME);
@@ -116,6 +116,21 @@ async function runScraper() {
         stats.status = "Minerando Descrições";
         stats.progressTotal = toScrape.length;
         addLog(`Minerando ${toScrape.length} novos consoles...`);
+
+        // --- WATCHDOG ---
+        let lastProgress = -1;
+        const WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
+        const watchdogIntervalId = setInterval(() => {
+            if (stats.status !== "Minerando Descrições") {
+                clearInterval(watchdogIntervalId);
+                return;
+            }
+            if (stats.progressCurrent === lastProgress) {
+                addLog(`WATCHDOG: O progresso não muda há 5 minutos. O scraper pode estar travado. Encerrando o processo...`);
+                process.exit(1); // Força a saída
+            }
+            lastProgress = stats.progressCurrent;
+        }, WATCHDOG_INTERVAL_MS);
         
         let currentIndex = 0;
         const createWorker = async () => {
@@ -170,12 +185,16 @@ async function runScraper() {
                      desc = await tab.evaluate(() => document.querySelector('.html')?.innerText || null);
                 }
 
-                if (desc) {
-                  newlyScrapedThisCycle.push({ ...item, descricao: desc, on: true, detectado_em: new Date().toISOString() });
+                const cleanedDesc = cleanDescription(desc);
+
+                if (cleanedDesc && cleanedDesc.length > 20 && !/Error|Access Denied|Página não encontrada/i.test(cleanedDesc)) {
+                  const scrapedItem = { ...item, descricao: cleanedDesc, on: true, detectado_em: new Date().toISOString() };
+                  newlyScrapedThisCycle.push(scrapedItem);
+                  stats.lastScrapedName = item.nome;
                   stats.newItemsLastCycle++;
                   success = true;
                 } else {
-                    addLog(`Descrição nula para ${item.url}. Falhou após retentativa.`);
+                    addLog(`Descrição inválida ou página de erro para ${item.url}.`);
                 }
 
               } catch (e) { 
@@ -190,6 +209,7 @@ async function runScraper() {
         };
 
         await Promise.all(Array(CONCURRENCY_LIMIT).fill(0).map(() => createWorker()));
+        clearInterval(watchdogIntervalId); // Desarma o watchdog
       }
 
       // Lógica de Salvamento Dual

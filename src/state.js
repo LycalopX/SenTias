@@ -11,7 +11,8 @@ let stats = {
     status: 'stopped', // 'running', 'waiting', 'stopped', 'error'
     lastRun: null,
     errors: 0,
-    logs: []
+    logs: [],
+    lastScrapedName: ''
 };
 
 module.exports = {

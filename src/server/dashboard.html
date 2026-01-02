@@ -32,7 +32,7 @@
                 </div>
             </header>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                 <div class="card">
                     <p class="text-slate-400 text-sm">No Banco de Dados</p>
                     <p id="total-items" class="text-4xl font-bold mt-2">-</p>
@@ -41,9 +41,9 @@
                     <p class="text-slate-400 text-sm">Minerados (Ciclo Atual)</p>
                     <p id="new-items" class="text-4xl font-bold mt-2 text-green-400">-</p>
                 </div>
-                <div class="card">
-                    <p class="text-slate-400 text-sm">Último Checkpoint</p>
-                    <p id="last-update" class="text-2xl font-bold mt-3">-</p>
+                <div class="card col-span-2">
+                    <p class="text-slate-400 text-sm">Último Console Encontrado</p>
+                    <p id="last-scraped" class="text-xl font-bold mt-3 truncate">-</p>
                 </div>
                 <div class="card">
                     <p class="text-slate-400 text-sm">Workers</p>
@@ -140,7 +140,7 @@
 
                     document.getElementById('total-items').innerText = data.totalItems || 0;
                     document.getElementById('new-items').innerText = '+' + (data.newItemsLastCycle || 0);
-                    document.getElementById('last-update').innerText = data.lastUpdate || '-';
+                    document.getElementById('last-scraped').innerText = data.lastScrapedName || '-';
                     document.getElementById('current-range').innerText = data.currentRange || "N/A";
                     
                     if(data.progressTotal > 0) {
