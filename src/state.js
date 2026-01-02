@@ -14,7 +14,8 @@ let stats = {
     logs: [],
     lastScrapedName: '',
     lotsFound: 0,
-    totalItemsFound: 0
+    totalItemsFound: 0,
+    failedItemsCount: 0
 };
 
 module.exports = {
