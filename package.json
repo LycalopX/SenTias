@@ -5,12 +5,13 @@
   "license": "ISC",
   "author": "LycalopX",
   "type": "commonjs",
-  "main": "doorzo.js",
+  "main": "src/server/index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/LycalopX/doorzo-scrapper.git"
   },
   "scripts": {
+    "start": "node src/scraper/doorzo.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

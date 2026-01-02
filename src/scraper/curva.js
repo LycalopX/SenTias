@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
+const { getExecutablePath } = require('../config');
+const path = require('path');
 
 (async () => {
   const searchTerm = "Newニンテンドー3DS LL";
@@ -7,12 +9,8 @@ const fs = require('fs');
   const MAX_PAGES = 100; 
   const PRECO_MINIMO = 10000;
   const CSV_FILENAME = 'analise_lotes.csv';
+  const CSV_FILENAME_PATH = path.join(__dirname, '../../data', CSV_FILENAME);
 
-  const getExecutablePath = () => {
-    if (process.platform === 'win32') return 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-    if (process.platform === 'darwin') return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    return null;
-  };
 
   const browser = await puppeteer.launch({
     headless: false,
@@ -108,7 +106,7 @@ const fs = require('fs');
 
     const csvHeaders = "Lote,Novos Validos,Novos Totais,Acumulado Validos,Acumulado Totais\n";
     const csvRows = historicoLotes.map(l => `${l.lote},${l.novosValidos},${l.novosTotais},${l.acumuladoValidos},${l.acumuladoTotais}`).join("\n");
-    fs.writeFileSync(CSV_FILENAME, csvHeaders + csvRows);
+    fs.writeFileSync(CSV_FILENAME_PATH, csvHeaders + csvRows);
     console.log(`\nArquivo '${CSV_FILENAME}' salvo.`);
 
   } catch (err) {
