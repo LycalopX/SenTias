@@ -2,6 +2,7 @@
 const http = require('http');
 const { stats, stopRequested } = require('../state');
 const { addLog } = require('../utils');
+const { CONCURRENCY_LIMIT, PORT } = require('../config');
 
 const server = http.createServer((req, res) => {
   // API para Status
@@ -66,7 +67,7 @@ const server = http.createServer((req, res) => {
                 </div>
                 <div class="card">
                     <p class="text-slate-400 text-sm">Workers</p>
-                    <p class="text-4xl font-bold mt-2 text-amber-500">${require('../config').CONCURRENCY_LIMIT}</p>
+                    <p class="text-4xl font-bold mt-2 text-amber-500">${CONCURRENCY_LIMIT}</p>
                 </div>
             </div>
 
@@ -142,6 +143,6 @@ const server = http.createServer((req, res) => {
   `);
 });
 
-server.listen(require('../config').PORT);
+server.listen(PORT);
 
 module.exports = server;
