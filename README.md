@@ -23,7 +23,7 @@ LatiasSeek is a powerful and customizable web scraper built with Node.js and Pup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/LycalopX/SenTias.git
+   git clone https://github.com/LycalopX/SenTias
    ```
 2. Navigate to the project directory:
    ```bash
