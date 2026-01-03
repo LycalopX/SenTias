@@ -4,6 +4,7 @@ const path = require('path');
 const os = require('os');
 const { stats, stopRequested } = require('../state');
 const { runScraper } = require('../scraper/doorzo');
+const { addLog } = require('../utils');
 
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
@@ -198,6 +199,7 @@ server.listen(config.PORT, '0.0.0.0', () => {
     console.log(`- No seu computador: http://localhost:${config.PORT}`);
     console.log(`- Na sua rede local: http://${localIp}:${config.PORT}`);
     console.log('\nIniciando o bot do scraper...');
+    addLog('Servidor iniciado. Scraper em modo de espera.');
     stats.status = 'Aguardando comando';
     runScraper();
 });

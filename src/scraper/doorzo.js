@@ -3,8 +3,9 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { getUniqueId, cleanDescription } = require('../utils');
+const { getUniqueId, cleanDescription, addLog } = require('../utils');
 const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../state');
 
 const CONFIG_PATH = path.join(__dirname, '../config.json');
@@ -22,24 +23,24 @@ async function getConfig() {
 // Read synchronously once for the initial path
 const FILENAME_ALL_PATH = path.join(__dirname, '../../data', JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')).FILENAME_ALL);
 
-function addLog(msg) {
-    const time = new Date().toLocaleTimeString();
-    const entry = `[${time}] ${msg}`;
-    console.log(entry);
-    stats.logs.unshift(entry);
-    if (stats.logs.length > 50) stats.logs.pop();
-}
-
 async function runScraper() {
   if (!stats.startTime) {
     stats.startTime = new Date();
   }
 
   if (!browser.instance) {
-    browser.instance = await puppeteer.launch({
+    const { executablePath } = await getConfig();
+    const launchOptions = {
       headless: false,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720', '--disable-dev-shm-usage']
-    });
+    };
+
+    if (os.platform() === 'win32' && executablePath) {
+        addLog(`Usando navegador customizável em: ${executablePath}`);
+        launchOptions.executablePath = executablePath;
+    }
+
+    browser.instance = await puppeteer.launch(launchOptions);
   }
 
   try {
