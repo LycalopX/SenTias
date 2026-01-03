@@ -2,9 +2,25 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { PORT, CONCURRENCY_LIMIT, FILENAME_ALL } = require('../config');
 const { stats, stopRequested } = require('../state');
 const { runScraper } = require('../scraper/doorzo');
+
+const CONFIG_PATH = path.join(__dirname, '../config.json');
+
+function getConfig() {
+    try {
+        return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    } catch (error) {
+        console.error("Error reading config.json:", error);
+        return {}; // Return empty object on error
+    }
+}
+
+function saveConfig(config, callback) {
+    fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 4), 'utf8', callback);
+}
+
+let config = getConfig();
 
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,6 +31,45 @@ const server = http.createServer((req, res) => {
     res.writeHead(204);
     res.end();
     return;
+  }
+
+  // API para Config
+  if (req.url === '/api/config' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(config));
+      return;
+  }
+
+  if (req.url === '/api/config' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => {
+          body += chunk.toString();
+      });
+      req.on('end', () => {
+          try {
+              const newConfig = JSON.parse(body);
+              // Simple validation
+              if (newConfig.searchTerm && Array.isArray(newConfig.searchKeywords)) {
+                  config = { ...config, ...newConfig }; // Merge new config with existing
+                  saveConfig(config, (err) => {
+                      if (err) {
+                          res.writeHead(500, { 'Content-Type': 'application/json' });
+                          res.end(JSON.stringify({ success: false, message: "Failed to save config." }));
+                          return;
+                      }
+                      res.writeHead(200, { 'Content-Type': 'application/json' });
+                      res.end(JSON.stringify({ success: true, message: "Config saved." }));
+                  });
+              } else {
+                  res.writeHead(400, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ success: false, message: "Invalid config format." }));
+              }
+          } catch (e) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, message: "Invalid JSON." }));
+          }
+      });
+      return;
   }
 
   // API para Status
@@ -28,7 +83,7 @@ const server = http.createServer((req, res) => {
 
     // API para Download do Catálogo
   if (req.url === '/api/download') {
-    const filePath = path.join(__dirname, '../../data', FILENAME_ALL);
+    const filePath = path.join(__dirname, '../../data', config.FILENAME_ALL);
     fs.readFile(filePath, 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -36,7 +91,7 @@ const server = http.createServer((req, res) => {
         return;
       }
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="${FILENAME_ALL}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${config.FILENAME_ALL}"`);
       res.writeHead(200);
       res.end(data);
     });
@@ -97,7 +152,7 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', CONCURRENCY_LIMIT);
+      const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', config.CONCURRENCY_LIMIT);
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(html);
     });
@@ -138,10 +193,10 @@ function getLocalIp() {
 
 const localIp = getLocalIp();
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(config.PORT, '0.0.0.0', () => {
     console.log(`Dashboard rodando! Acesse de um dos seguintes endereços:`);
-    console.log(`- No seu computador: http://localhost:${PORT}`);
-    console.log(`- Na sua rede local: http://${localIp}:${PORT}`);
+    console.log(`- No seu computador: http://localhost:${config.PORT}`);
+    console.log(`- Na sua rede local: http://${localIp}:${config.PORT}`);
     console.log('\nIniciando o bot do scraper...');
     stats.status = 'Aguardando comando';
     runScraper();

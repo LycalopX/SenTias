@@ -95,9 +95,32 @@
                         <p class="text-slate-400 text-sm">Runtime</p>
                         <p id="runtime" class="text-4xl font-bold mt-2">-</p>
                     </div>
+                    <div class="card mb-6">
+                        <h2 class="text-xl font-bold mb-4">Configurações de Busca</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="searchTerm" class="block text-sm font-medium text-slate-300">Termo de Busca Principal</label>
+                                <input type="text" id="searchTerm" class="mt-1 block w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300">Palavras-chave de Filtragem</label>
+                                <div id="keywords-container" class="mt-2 space-y-2"></div>
+                                <div class="flex gap-2 mt-2">
+                                    <input type="text" id="newKeyword" placeholder="Adicionar palavra-chave" class="block w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm">
+                                    <button onclick="addKeyword()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">+</button>
+                                </div>
+                            </div>
+                            <button onclick="saveConfig()" class="w-full btn bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-md">Salvar Configurações</button>
+                        </div>
+                    </div>
                     <div class="card">
-                        <h2 class="text-xl font-bold mb-4">Meta de Preço</h2>
-                        <div id="current-range" class="p-4 bg-slate-800 rounded-lg text-center border border-amber-500/30 font-bold">-</div>
+                        <h2 class="text-xl font-bold mb-4">Faixas de Preço</h2>
+                        <div id="price-ranges-container" class="space-y-2"></div>
+                        <div class="flex gap-2 mt-2">
+                            <input type="number" id="new-price-min" placeholder="Mín" class="block w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm">
+                            <input type="number" id="new-price-max" placeholder="Máx" class="block w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm">
+                            <button onclick="addPriceRange()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">+</button>
+                        </div>
                         <div class="mt-6 text-sm text-slate-500">
                             <p class="mb-2 font-bold text-slate-300">Regras de Salvamento:</p>
                             <ul class="list-disc ml-4 space-y-2">
@@ -113,6 +136,8 @@
         <script>
             const startBtn = document.getElementById('start-btn');
             const stopBtn = document.getElementById('stop-btn');
+            let currentKeywords = [];
+            let currentPriceRanges = [];
 
             async function startScraper() {
                 if(!confirm("Deseja iniciar o ciclo de mineração?")) return;
@@ -135,6 +160,120 @@
                     stopBtn.disabled = true;
                 } catch(e) {
                     console.error("Falha ao parar:", e);
+                }
+            }
+
+            function renderKeywords() {
+                const container = document.getElementById('keywords-container');
+                container.innerHTML = currentKeywords.map((kw, index) => `
+                    <div class="flex justify-between items-center bg-slate-700 p-2 rounded-md">
+                        <span>${kw}</span>
+                        <button onclick="removeKeyword(${index})" class="text-red-500 hover:text-red-700 font-bold">X</button>
+                    </div>
+                `).join('');
+            }
+
+            function addKeyword() {
+                const input = document.getElementById('newKeyword');
+                const keyword = input.value.trim().toLowerCase();
+                if (keyword && !currentKeywords.includes(keyword)) {
+                    currentKeywords.push(keyword);
+                    renderKeywords();
+                    input.value = '';
+                }
+            }
+
+            function removeKeyword(index) {
+                currentKeywords.splice(index, 1);
+                renderKeywords();
+            }
+
+            function renderPriceRanges() {
+                const container = document.getElementById('price-ranges-container');
+                currentPriceRanges.sort((a, b) => a.min - b.min);
+                container.innerHTML = currentPriceRanges.map((range, index) => `
+                    <div class="flex justify-between items-center bg-slate-700 p-2 rounded-md">
+                        <span>¥${range.min.toLocaleString()} - ¥${range.max.toLocaleString()}</span>
+                        <button onclick="removePriceRange(${index})" class="text-red-500 hover:text-red-700 font-bold">X</button>
+                    </div>
+                `).join('');
+            }
+
+            function addPriceRange() {
+                const minInput = document.getElementById('new-price-min');
+                const maxInput = document.getElementById('new-price-max');
+                const min = parseInt(minInput.value);
+                const max = parseInt(maxInput.value);
+
+                if (isNaN(min) || isNaN(max) || min <= 0 || max <= 0) {
+                    alert("Valores de preço inválidos.");
+                    return;
+                }
+
+                if (min >= max) {
+                    alert("O preço mínimo deve ser menor que o máximo.");
+                    return;
+                }
+
+                const overlaps = currentPriceRanges.some(range =>
+                    (min >= range.min && min <= range.max) ||
+                    (max >= range.min && max <= range.max) ||
+                    (min <= range.min && max >= range.max)
+                );
+
+                if (overlaps) {
+                    alert("A faixa de preço se sobrepõe com uma existente.");
+                    return;
+                }
+
+                currentPriceRanges.push({ min, max });
+                renderPriceRanges();
+                minInput.value = '';
+                maxInput.value = '';
+            }
+
+            function removePriceRange(index) {
+                currentPriceRanges.splice(index, 1);
+                renderPriceRanges();
+            }
+
+            async function saveConfig() {
+                const searchTerm = document.getElementById('searchTerm').value;
+                const newConfig = {
+                    searchTerm: searchTerm,
+                    searchKeywords: currentKeywords,
+                    priceRanges: currentPriceRanges
+                };
+
+                try {
+                    const response = await fetch('/api/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newConfig)
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Configurações salvas com sucesso!');
+                    } else {
+                        alert('Falha ao salvar configurações: ' + result.message);
+                    }
+                } catch (e) {
+                    console.error("Falha ao salvar config:", e);
+                    alert('Erro de comunicação com o servidor.');
+                }
+            }
+            
+            async function loadConfig() {
+                try {
+                    const res = await fetch('/api/config');
+                    const config = await res.json();
+                    document.getElementById('searchTerm').value = config.searchTerm || '';
+                    currentKeywords = config.searchKeywords || [];
+                    currentPriceRanges = config.priceRanges || [];
+                    renderKeywords();
+                    renderPriceRanges();
+                } catch (e) {
+                    console.error("Failed to load config:", e);
                 }
             }
 
@@ -202,6 +341,7 @@
             }
             setInterval(updateDashboard, 1500);
             updateDashboard(); // Initial call
+            loadConfig(); // Load config on page load
         </script>
     </body>
     </html>

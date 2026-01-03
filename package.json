@@ -1,5 +1,5 @@
 {
-  "name": "doorzo-scrapper",
+  "name": "SenTias",
   "version": "1.0.0",
   "description": "no",
   "license": "ISC",
@@ -8,7 +8,7 @@
   "main": "src/server/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LycalopX/doorzo-scrapper.git"
+    "url": "git+https://github.com/LycalopX/SenTias.git"
   },
   "scripts": {
     "start": "node src/server/index.js",

@@ -4,9 +4,23 @@ puppeteer.use(StealthPlugin());
 
 const fs = require('fs');
 const path = require('path');
-const { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges } = require('../config');
 const { getUniqueId, cleanDescription } = require('../utils');
 const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../state');
+
+const CONFIG_PATH = path.join(__dirname, '../config.json');
+
+function getConfig() {
+    try {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        return JSON.parse(configData);
+    } catch (error) {
+        console.error("Error reading or parsing config.json:", error);
+        // Retornar um objeto de configuração padrão ou lançar um erro
+        throw new Error("Could not load configuration.");
+    }
+}
+
+let { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = getConfig();
 
 const FILENAME_ALL_PATH = path.join(__dirname, '../../data', FILENAME_ALL);
 
@@ -32,6 +46,8 @@ async function runScraper() {
 
   try {
     while (true) {
+      ({ searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = getConfig());
+
       stats.status = "Pesquisando";
       stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
@@ -130,14 +146,13 @@ async function runScraper() {
       const uniqueItems = Array.from(new Map(allFoundItems.map(item => [getUniqueId(item.url), item])).values());
       const toScrape = [];
       const blacklist = ["フィルム", "カバー", "ケース", "充電器", "ACアダプター", "タッチペン", "ケーブル", "ポーチ", "ソフト"];
-      const keywords = ['new', '3ds', 'll'];
-
+      
       uniqueItems.forEach(item => {
         const id = getUniqueId(item.url);
         if (blacklist.some(word => item.nome.includes(word)) || item.sold) return;
 
         const lowerCaseName = item.nome.toLowerCase();
-        const hasAllKeywords = keywords.every(kw => lowerCaseName.includes(kw));
+        const hasAllKeywords = searchKeywords.every(kw => lowerCaseName.includes(kw));
 
         if (!hasAllKeywords) {
             return;
