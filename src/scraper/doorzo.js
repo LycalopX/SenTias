@@ -11,13 +11,13 @@ const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../s
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
 async function getConfig() {
-    try {
-        const configData = await fs.promises.readFile(CONFIG_PATH, 'utf8');
-        return JSON.parse(configData);
-    } catch (error) {
-        console.error("Error reading or parsing config.json:", error);
-        throw new Error("Could not load configuration.");
-    }
+  try {
+    const configData = await fs.promises.readFile(CONFIG_PATH, 'utf8');
+    return JSON.parse(configData);
+  } catch (error) {
+    console.error("Error reading or parsing config.json:", error);
+    throw new Error("Could not load configuration.");
+  }
 }
 
 // Read synchronously once for the initial path
@@ -36,8 +36,8 @@ async function runScraper() {
     };
 
     if (os.platform() === 'win32' && executablePath) {
-        addLog(`Usando navegador customizável em: ${executablePath}`);
-        launchOptions.executablePath = executablePath;
+      addLog(`Usando navegador customizável em: ${executablePath}`);
+      launchOptions.executablePath = executablePath;
     }
 
     browser.instance = await puppeteer.launch(launchOptions);
@@ -47,7 +47,7 @@ async function runScraper() {
     while (true) {
       const { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = await getConfig();
 
-      stats.status = "Pesquisando";      stats.newItemsLastCycle = 0;
+      stats.status = "Pesquisando"; stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
       stats.progressTotal = 0;
       stats.lotsFound = 0;
