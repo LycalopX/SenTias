@@ -9,27 +9,25 @@ const { browser, originalCatalogSnapshot, stopRequested, stats } = require('../s
 
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
-function getConfig() {
+async function getConfig() {
     try {
-        const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        const configData = await fs.promises.readFile(CONFIG_PATH, 'utf8');
         return JSON.parse(configData);
     } catch (error) {
         console.error("Error reading or parsing config.json:", error);
-        // Retornar um objeto de configuração padrão ou lançar um erro
         throw new Error("Could not load configuration.");
     }
 }
 
-let { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = getConfig();
-
-const FILENAME_ALL_PATH = path.join(__dirname, '../../data', FILENAME_ALL);
+// Read synchronously once for the initial path
+const FILENAME_ALL_PATH = path.join(__dirname, '../../data', JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')).FILENAME_ALL);
 
 function addLog(msg) {
-  const time = new Date().toLocaleTimeString();
-  const entry = `[${time}] ${msg}`;
-  console.log(entry);
-  stats.logs.unshift(entry);
-  if (stats.logs.length > 50) stats.logs.pop();
+    const time = new Date().toLocaleTimeString();
+    const entry = `[${time}] ${msg}`;
+    console.log(entry);
+    stats.logs.unshift(entry);
+    if (stats.logs.length > 50) stats.logs.pop();
 }
 
 async function runScraper() {
@@ -46,10 +44,9 @@ async function runScraper() {
 
   try {
     while (true) {
-      ({ searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = getConfig());
+      const { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = await getConfig();
 
-      stats.status = "Pesquisando";
-      stats.newItemsLastCycle = 0;
+      stats.status = "Pesquisando";      stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
       stats.progressTotal = 0;
       stats.lotsFound = 0;
