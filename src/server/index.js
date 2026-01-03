@@ -9,11 +9,13 @@ const { addLog } = require('../utils');
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
 function getConfig() {
+    const defaults = { PORT: 3000, FILENAME_ALL: "catalogo_completo.json" };
     try {
-        return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        return { ...defaults, ...JSON.parse(configData) };
     } catch (error) {
-        console.error("Error reading config.json:", error);
-        return {}; // Return empty object on error
+        console.error("Warning: Could not read config.json. Using default values.", error);
+        return defaults;
     }
 }
 

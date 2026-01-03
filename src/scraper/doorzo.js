@@ -20,9 +20,6 @@ async function getConfig() {
   }
 }
 
-// Read synchronously once for the initial path
-const FILENAME_ALL_PATH = path.join(__dirname, '../../data', JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')).FILENAME_ALL);
-
 async function runScraper() {
   if (!stats.startTime) {
     stats.startTime = new Date();
@@ -46,8 +43,9 @@ async function runScraper() {
   try {
     while (true) {
       const { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = await getConfig();
-
-      stats.status = "Pesquisando"; stats.newItemsLastCycle = 0;
+      const FILENAME_ALL_PATH = path.join(__dirname, '../../data', FILENAME_ALL);
+      stats.status = "Pesquisando";
+      stats.newItemsLastCycle = 0; stats.newItemsLastCycle = 0;
       stats.progressCurrent = 0;
       stats.progressTotal = 0;
       stats.lotsFound = 0;
