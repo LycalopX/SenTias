@@ -36,12 +36,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.url === '/api/ping') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, message: "pong" }));
-      return;
-  }
-
   // API para Config
   if (req.url === '/api/config' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
