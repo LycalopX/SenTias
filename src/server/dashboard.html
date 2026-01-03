@@ -342,6 +342,15 @@
             setInterval(updateDashboard, 1500);
             updateDashboard(); // Initial call
             loadConfig(); // Load config on page load
+
+            // --- Diagnostics ---
+            function pingServer() {
+                fetch('/api/ping')
+                    .then(res => res.json())
+                    .then(data => console.log('Ping OK:', data))
+                    .catch(err => console.error('Ping FAILED:', err));
+            }
+            setInterval(pingServer, 5000);
         </script>
     </body>
     </html>
