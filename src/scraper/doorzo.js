@@ -28,8 +28,13 @@ async function runScraper() {
   if (!browser.instance) {
     const { executablePath } = await getConfig();
     const launchOptions = {
-      headless: false,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720', '--disable-dev-shm-usage']
+      headless: "new",
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage', // Evita crash por falta de memória compartilhada no Docker/Linux
+        '--disable-gpu'            // Servidores geralmente não têm GPU
+      ]
     };
 
     if (os.platform() === 'win32' && executablePath) {
