@@ -1,4 +1,5 @@
-const http = require('http');
+const express = require('express');
+const router = express.Router(); // Transformando em Router
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -8,13 +9,14 @@ const { addLog } = require('../utils');
 
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
+// --- MANTEMOS SUAS FUNÇÕES ORIGINAIS ---
 function getConfig() {
     const defaults = { PORT: 3000, FILENAME_ALL: "catalogo_completo.json" };
     try {
         const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
         return { ...defaults, ...JSON.parse(configData) };
     } catch (error) {
-        console.error("Warning: Could not read config.json. Using default values.", error);
+        console.error("Warning: Could not read config.json.", error);
         return defaults;
     }
 }
@@ -25,185 +27,74 @@ function saveConfig(config, callback) {
 
 let config = getConfig();
 
-const server = http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+// Middleware para JSON (substitui o req.on('data') manual)
+router.use(express.json());
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+// API para Config (GET)
+router.get('/api/config', (req, res) => {
+    res.json(config);
+});
 
-  // API para Config
-  if (req.url === '/api/config' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(config));
-      return;
-  }
+// API para Config (POST)
+router.post('/api/config', (req, res) => {
+    const newConfig = req.body; 
+    if (newConfig.searchTerm && Array.isArray(newConfig.searchKeywords)) {
+        config = { ...config, ...newConfig };
+        saveConfig(config, (err) => {
+            if (err) return res.status(500).json({ success: false, message: "Failed to save config." });
+            res.json({ success: true, message: "Config saved." });
+        });
+    } else {
+        res.status(400).json({ success: false, message: "Invalid config format." });
+    }
+});
 
-  if (req.url === '/api/config' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => {
-          body += chunk.toString();
-      });
-      req.on('end', () => {
-          try {
-              const newConfig = JSON.parse(body);
-              // Simple validation
-              if (newConfig.searchTerm && Array.isArray(newConfig.searchKeywords)) {
-                  config = { ...config, ...newConfig }; // Merge new config with existing
-                  saveConfig(config, (err) => {
-                      if (err) {
-                          res.writeHead(500, { 'Content-Type': 'application/json' });
-                          res.end(JSON.stringify({ success: false, message: "Failed to save config." }));
-                          return;
-                      }
-                      res.writeHead(200, { 'Content-Type': 'application/json' });
-                      res.end(JSON.stringify({ success: true, message: "Config saved." }));
-                  });
-              } else {
-                  res.writeHead(400, { 'Content-Type': 'application/json' });
-                  res.end(JSON.stringify({ success: false, message: "Invalid config format." }));
-              }
-          } catch (e) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: false, message: "Invalid JSON." }));
-          }
-      });
-      return;
-  }
-
-  // API para Status
-  if (req.url === '/api/stats') {
+// API para Status
+router.get('/api/stats', (req, res) => {
     const uptime = stats.startTime ? Math.floor((new Date() - new Date(stats.startTime)) / 1000) : 0;
-    const responseStats = { ...stats, uptime };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(responseStats));
-    return;
-  }
+    res.json({ ...stats, uptime });
+});
 
-    // API para Download do Catálogo
-  if (req.url === '/api/download') {
+// API para Download do Catálogo
+router.get('/api/download', (req, res) => {
     const filePath = path.join(__dirname, '../../data', config.FILENAME_ALL);
-    fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err) {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('File not found.');
-        return;
-      }
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="${config.FILENAME_ALL}"`);
-      res.writeHead(200);
-      res.end(data);
+    res.download(filePath, config.FILENAME_ALL, (err) => {
+        if (err) res.status(404).send('File not found.');
     });
-    return;
-  }
+});
 
-  // API para Iniciar o Scraper
-  if (req.url === '/api/start' && req.method === 'POST') {
+// API para Iniciar o Scraper
+router.post('/api/start', (req, res) => {
     if (stats.status === 'Parado' || stats.status === "Aguardando comando") {
         stopRequested.status = false;
-        stats.status = 'Em Espera'; // O loop vai pegar esse status
-        console.log("Comando de início recebido. O próximo ciclo começará em breve.");
+        stats.status = 'Em Espera';
+        console.log("Comando de início recebido.");
     }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: "Scraper start command received." }));
-    return;
-  }
+    res.json({ success: true, message: "Scraper start command received." });
+});
 
-  // API para Parar o Programa
-  if (req.url === '/api/stop' && req.method === 'POST') {
+// API para Parar o Programa
+router.post('/api/stop', (req, res) => {
     stopRequested.status = true;
-    console.log("Comando de parada recebido. O scraper irá parar após a conclusão do item atual.");
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: "Scraper stop command sent." }));
-    return;
-  }
+    res.json({ success: true, message: "Scraper stop command sent." });
+});
 
+// Assets (Imagens/CSS)
+router.use('/assets', express.static(path.join(__dirname, '../../assets')));
 
-  if (req.url.startsWith('/assets/')) {
-    const assetPath = path.join(__dirname, '..', '..', req.url);
-    const stream = fs.createReadStream(assetPath);
-    stream.on('error', () => {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Asset not found.');
-    });
-    // Guess mime type
-    const mimeTypes = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.svg': 'image/svg+xml',
-    };
-    const ext = path.extname(assetPath).toLowerCase();
-    const mimeType = mimeTypes[ext] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': mimeType });
-    stream.pipe(res);
-    return;
-  }
-
-  // Frontend
-  if (req.url === '/') {
+// Frontend (Dashboard)
+router.get('/', (req, res) => {
     const dashboardPath = path.join(__dirname, 'dashboard.html');
     fs.readFile(dashboardPath, 'utf8', (err, data) => {
-      if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Error loading dashboard.');
-        return;
-      }
-
-      const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', config.CONCURRENCY_LIMIT);
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(html);
+        if (err) return res.status(500).send('Error loading dashboard.');
+        const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', config.CONCURRENCY_LIMIT);
+        res.send(html);
     });
-    return;
-  }
-
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not Found');
 });
 
-function getLocalIp() {
-    const nets = os.networkInterfaces();
-    const prioritizedInterfaces = ['Ethernet', 'Wi-Fi', 'wlan0', 'eth0'];
-    let fallbackIp = null;
+// --- INICIALIZAÇÃO ---
+addLog('Servidor iniciado. Scraper em modo de espera.');
+stats.status = 'Aguardando comando';
+runScraper();
 
-    for (const name of prioritizedInterfaces) {
-        if (nets[name]) {
-            for (const net of nets[name]) {
-                if (net.family === 'IPv4' && !net.internal) {
-                    return net.address;
-                }
-            }
-        }
-    }
-
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal) {
-                if (!fallbackIp) {
-                    fallbackIp = net.address;
-                }
-            }
-        }
-    }
-    
-    return fallbackIp || '0.0.0.0';
-}
-
-const localIp = getLocalIp();
-
-server.listen(config.PORT, '0.0.0.0', () => {
-    console.log(`Dashboard rodando! Acesse de um dos seguintes endereços:`);
-    console.log(`- No seu computador: http://localhost:${config.PORT}`);
-    console.log(`- Na sua rede local: http://${localIp}:${config.PORT}`);
-    console.log('\nIniciando o bot do scraper...');
-    addLog('Servidor iniciado. Scraper em modo de espera.');
-    stats.status = 'Aguardando comando';
-    runScraper();
-});
-
-module.exports = server;
+module.exports = router; // Exportamos o router para o MasterHub

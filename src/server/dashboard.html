@@ -7,7 +7,7 @@
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
             body { 
-                background-image: url('/assets/latias.jpg');
+                background-image: url('/scraper/assets/latias.jpg');
                 background-size: cover;
                 background-position: center;
                 background-attachment: fixed;
@@ -145,7 +145,7 @@
             async function startScraper() {
                 if(!confirm("Deseja iniciar o ciclo de mineração?")) return;
                 try {
-                    await fetch('/api/start', { method: 'POST' });
+                    await fetch('/scraper/api/start', { method: 'POST' });
                     startBtn.innerText = "Iniciando...";
                     startBtn.disabled = true;
                 } catch(e) {
@@ -158,7 +158,7 @@
             async function stopScraper() {
                 if(!confirm("Deseja interromper a mineração e salvar os itens capturados até agora? O bot ficará pausado até ser iniciado novamente.")) return;
                 try {
-                    await fetch('/api/stop', { method: 'POST' });
+                    await fetch('/scraper/api/stop', { method: 'POST' });
                     stopBtn.innerText = "Encerrando...";
                     stopBtn.disabled = true;
                 } catch(e) {
@@ -249,7 +249,7 @@
                 };
 
                 try {
-                    const response = await fetch('/api/config', {
+                    const response = await fetch('/scraper/api/config', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newConfig)
@@ -268,7 +268,7 @@
             
             async function loadConfig() {
                 try {
-                    const res = await fetch('/api/config');
+                    const res = await fetch('/scraper/api/config');
                     const config = await res.json();
                     document.getElementById('searchTerm').value = config.searchTerm || '';
                     currentKeywords = config.searchKeywords || [];
@@ -282,7 +282,7 @@
 
             async function updateDashboard() {
                 try {
-                    const res = await fetch('/api/stats');
+                    const res = await fetch('/scraper/api/stats');
                     const data = await res.json();
                     
                     document.getElementById('status-badge').innerText = data.status;

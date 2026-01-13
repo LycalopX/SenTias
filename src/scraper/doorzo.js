@@ -21,31 +21,33 @@ async function getConfig() {
 }
 
 async function runScraper() {
-  if (!stats.startTime) {
-    stats.startTime = new Date();
-  }
-
-  if (!browser.instance) {
-    const { executablePath } = await getConfig();
-    const launchOptions = {
-      headless: "new",
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage', // Evita crash por falta de memória compartilhada no Docker/Linux
-        '--disable-gpu'            // Servidores geralmente não têm GPU
-      ]
-    };
-
-    if (os.platform() === 'win32' && executablePath) {
-      addLog(`Usando navegador customizável em: ${executablePath}`);
-      launchOptions.executablePath = executablePath;
-    }
-
-    browser.instance = await puppeteer.launch(launchOptions);
-  }
 
   try {
+
+    if (!stats.startTime) {
+      stats.startTime = new Date();
+    }
+
+    if (!browser.instance) {
+      const { executablePath } = await getConfig();
+      const launchOptions = {
+        headless: "new",
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage', // Evita crash por falta de memória compartilhada no Docker/Linux
+          '--disable-gpu'            // Servidores geralmente não têm GPU
+        ]
+      };
+
+      if (os.platform() === 'win32' && executablePath) {
+        addLog(`Usando navegador customizável em: ${executablePath}`);
+        launchOptions.executablePath = executablePath;
+      }
+
+      browser.instance = await puppeteer.launch(launchOptions);
+    }
+
     while (true) {
       const { searchTerm, FILENAME_ALL, FILENAME_NEW, CONCURRENCY_LIMIT, RECYCLE_THRESHOLD, WAIT_BETWEEN_CYCLES, priceRanges, searchKeywords } = await getConfig();
       const FILENAME_ALL_PATH = path.join(__dirname, '../../data', FILENAME_ALL);
@@ -74,9 +76,11 @@ async function runScraper() {
       stats.totalItems = catalog.length;
 
       if (stopRequested.status) {
-        stats.status = "Aguardando comando";
-        await new Promise(r => setTimeout(r, 5000)); // wait before checking again
-        continue;
+        await browser.instance.close();
+        browser.instance = null; // Reseta para o próximo start
+        stopRequested.status = false;
+        stats.status = "Parado";
+        break; // Sai do loop while
       }
 
       let allFoundItems = [];
@@ -350,8 +354,12 @@ async function runScraper() {
     }
   } catch (err) {
     stats.status = "Erro Crítico";
-    stats.logs.unshift(`[${new Date().toLocaleTimeString()}] Erro crítico no loop principal: ${err.message}`);
+    addLog(`Erro crítico no loop principal: ${err.message}`);
     console.error("Erro critico:", err);
+    if (browser.instance) {
+        await browser.instance.close().catch(() => {});
+        browser.instance = null;
+    }
     await new Promise(r => setTimeout(r, 30000)); // wait 30s before restarting
     runScraper(); // Tenta reiniciar o scraper
   }
