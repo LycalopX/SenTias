@@ -365,4 +365,10 @@ async function runScraper() {
   }
 }
 
+
+process.on('SIGINT', async () => {
+    if (browser.instance) await browser.instance.close();
+    process.exit();
+});
+
 module.exports = { runScraper };
