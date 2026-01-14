@@ -6,7 +6,7 @@
     "PORT": 3000,
     "CONCURRENCY_LIMIT": 5,
     "RECYCLE_THRESHOLD": 20,
-    "WAIT_BETWEEN_CYCLES": 6000000,
+    "WAIT_BETWEEN_CYCLES": 1800000,
     "priceRanges": [
         { "min": 22000, "max": 24250 },
         { "min": 24251, "max": 26500 },

@@ -92,6 +92,17 @@ router.get('/', (req, res) => {
     });
 });
 
+const { exec } = require('child_process');
+
+// Rota de Emergência para limpar a RAM
+router.post('/api/sys/cleanup', (req, res) => {
+    // Mata todos os processos chrome/chromium do usuário
+    exec("pkill -9 -u lycalopx chrome || pkill -9 -u lycalopx chromium", (err) => {
+        addLog("Limpeza de emergência executada via Dashboard.");
+        res.json({ success: true, message: "Processos Chromium encerrados." });
+    });
+});
+
 // --- INICIALIZAÇÃO ---
 addLog('Servidor iniciado. Scraper em modo de espera.');
 stats.status = 'Aguardando comando';
