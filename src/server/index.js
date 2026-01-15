@@ -1,17 +1,23 @@
 const express = require('express');
-const router = express.Router(); // Transformando em Router
+const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { stats, stopRequested } = require('../state');
-const { runScraper } = require('../scraper/doorzo');
+const Scraper = require('../services/scraper');
 const { addLog } = require('../utils');
 
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
-// --- MANTEMOS SUAS FUNÇÕES ORIGINAIS ---
 function getConfig() {
-    const defaults = { PORT: 3000, FILENAME_ALL: "catalogo_completo.json" };
+    const defaults = {
+        PORT: 3000,
+        FILENAME_ALL: "catalogo_completo.json",
+        FILENAME_NEW: "catalogo_novos_do_ciclo.json",
+        CONCURRENCY_LIMIT: 5,
+        RECYCLE_THRESHOLD: 20,
+        WAIT_BETWEEN_CYCLES: 1800000
+    };
     try {
         const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
         return { ...defaults, ...JSON.parse(configData) };
@@ -26,8 +32,9 @@ function saveConfig(config, callback) {
 }
 
 let config = getConfig();
+const scraperInstance = new Scraper(config, stats, stopRequested);
 
-// Middleware para JSON (substitui o req.on('data') manual)
+// Middleware para JSON
 router.use(express.json());
 
 // API para Config (GET)
@@ -37,9 +44,10 @@ router.get('/api/config', (req, res) => {
 
 // API para Config (POST)
 router.post('/api/config', (req, res) => {
-    const newConfig = req.body; 
+    const newConfig = req.body;
     if (newConfig.searchTerm && Array.isArray(newConfig.searchKeywords)) {
         config = { ...config, ...newConfig };
+        scraperInstance.config = config; // Atualiza a config na instância do scraper
         saveConfig(config, (err) => {
             if (err) return res.status(500).json({ success: false, message: "Failed to save config." });
             res.json({ success: true, message: "Config saved." });
@@ -68,7 +76,8 @@ router.post('/api/start', (req, res) => {
     if (stats.status === 'Parado' || stats.status === "Aguardando comando") {
         stopRequested.status = false;
         stats.status = 'Em Espera';
-        console.log("Comando de início recebido.");
+        addLog("Comando de início recebido.");
+        // O scraper já está rodando em loop, ele vai detectar que o status mudou ou vai sair do sleep
     }
     res.json({ success: true, message: "Scraper start command received." });
 });
@@ -76,6 +85,7 @@ router.post('/api/start', (req, res) => {
 // API para Parar o Programa
 router.post('/api/stop', (req, res) => {
     stopRequested.status = true;
+    addLog("Comando de parada recebido.");
     res.json({ success: true, message: "Scraper stop command sent." });
 });
 
@@ -87,25 +97,13 @@ router.get('/', (req, res) => {
     const dashboardPath = path.join(__dirname, 'dashboard.html');
     fs.readFile(dashboardPath, 'utf8', (err, data) => {
         if (err) return res.status(500).send('Error loading dashboard.');
-        const html = data.replace('CONCURRENCY_LIMIT_PLACEHOLDER', config.CONCURRENCY_LIMIT);
-        res.send(html);
-    });
-});
-
-const { exec } = require('child_process');
-
-// Rota de Emergência para limpar a RAM
-router.post('/api/sys/cleanup', (req, res) => {
-    // Mata todos os processos chrome/chromium do usuário
-    exec("pkill -9 -u lycalopx chrome || pkill -9 -u lycalopx chromium", (err) => {
-        addLog("Limpeza de emergência executada via Dashboard.");
-        res.json({ success: true, message: "Processos Chromium encerrados." });
+        res.send(data);
     });
 });
 
 // --- INICIALIZAÇÃO ---
 addLog('Servidor iniciado. Scraper em modo de espera.');
 stats.status = 'Aguardando comando';
-runScraper();
+scraperInstance.run(); // Inicia o loop do scraper
 
-module.exports = router; // Exportamos o router para o MasterHub
+module.exports = router; 
